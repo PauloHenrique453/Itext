@@ -13,9 +13,12 @@ async function setup() {
  create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text);
  alter table storage.objects enable row level security;
  grant usage on schema public,auth,storage to anon,authenticated;
- grant select,insert on storage.objects to anon,authenticated;`)
+ grant select,insert on storage.objects to anon,authenticated;
+ alter default privileges in schema public grant execute on functions to anon,authenticated;`)
  await db.exec(readFileSync('supabase/google-chat.sql','utf8'))
  await db.exec(readFileSync('supabase/social.sql','utf8'))
+ await db.exec(readFileSync('supabase/creator-privacy.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261017192931_restrict_itext_api_privileges.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -108,5 +111,53 @@ test('public post counts are derived from real interactions; authorship and prof
   const person=(await db.query('select * from public.itext_public_profiles where id=$1',[ONE])).rows[0]
   assert.equal(person.bio,'')
   await assert.rejects(db.query("insert into public.itext_posts(author_id,text) values($1,'Anônimo')",[ONE]))
+ }finally{await db.close()}
+})
+
+
+test('API wrappers preserve public access while full profiles, private vaults and privileged implementations stay restricted',async()=>{
+ const db=await setup()
+ try{
+  await db.exec(`reset role`)
+  assert.equal((await db.query("select count(*)::integer as total from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef")).rows[0].total,0)
+  assert.equal((await db.query("select bool_and('security_invoker=true'=any(c.reloptions)) as safe from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='v'")).rows[0].safe,true)
+  await as(db,ONE)
+  await db.query(`update public.chat_profiles set settings='{"privacy":"private"}' where id=$1`,[ONE])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.chat_profiles')).rows.length,1)
+  assert.equal((await db.query('select * from public.itext_public_profiles')).rows.length,3)
+  await db.exec('reset role')
+  await db.query('insert into public.itext_chat_privacy(owner_id) values($1)',[ONE])
+  await as(db,ONE)
+  await db.query('insert into public.itext_chat_keys(user_id,public_key,encrypted_private_key,fingerprint,notice_version) values($1,$2,$3,$4,$5)',[ONE,'-----BEGIN PGP PUBLIC KEY BLOCK-----'+ 'a'.repeat(150),'-----BEGIN PGP PRIVATE KEY BLOCK-----'+'b'.repeat(150),'a'.repeat(40),'creator-access-v1'])
+  assert.equal((await db.query('select public.itext_is_creator() as allowed')).rows[0].allowed,true)
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_chat_keys')).rows.length,0)
+  assert.equal((await db.query('select * from public.itext_chat_public_keys')).rows.length,1)
+  assert.equal((await db.query('select public.itext_is_creator() as allowed')).rows[0].allowed,false)
+  for(const id of [TWO,THREE]){
+    await as(db,id)
+    await db.query('insert into public.itext_chat_keys(user_id,public_key,encrypted_private_key,fingerprint,notice_version) values($1,$2,$3,$4,$5)',[id,'-----BEGIN PGP PUBLIC KEY BLOCK-----'+'a'.repeat(150),'-----BEGIN PGP PRIVATE KEY BLOCK-----'+'b'.repeat(150),'a'.repeat(40),'creator-access-v1'])
+  }
+  await as(db,TWO)
+  await db.query('insert into public.direct_messages(sender_id,recipient_id,owner_id,encryption_version,body) values($1,$2,$3,1,$4)',[TWO,THREE,ONE,'-----BEGIN PGP MESSAGE-----ciphertext'])
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.direct_messages')).rows.length,1)
+  await as(db,THREE)
+  assert.equal((await db.query('select * from public.direct_messages')).rows.length,1)
+  await db.exec('reset role')
+  const outsider='00000000-0000-0000-0000-000000000004'
+  await db.query('insert into auth.users(id) values($1)',[outsider])
+  await as(db,outsider)
+  assert.equal((await db.query('select * from public.direct_messages')).rows.length,0)
+  await as(db)
+  assert.equal((await db.query('select public.itext_crypto_ready() as ready')).rows[0].ready,true)
+  assert.equal((await db.query('select * from public.itext_public_profiles')).rows.length,4)
+  for(const table of ['itext_chat_keys','chat_profiles','itext_chat_privacy','itext_chat_public_keys'])await assert.rejects(db.query(`select * from public.${table}`))
+  await assert.rejects(db.query('select * from itext_private.chat_public_keys()'))
+  for(const call of ["itext_create_group('x','','public','open')","itext_dating_cards()","itext_is_creator()"]){
+    await assert.rejects(db.query(`select public.${call}`))
+    await assert.rejects(db.query(`select itext_private.${call}`))
+  }
  }finally{await db.close()}
 })

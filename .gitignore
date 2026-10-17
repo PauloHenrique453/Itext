@@ -9,3 +9,5 @@ dist/
 .dev.vars
 
 .firebase/
+
+supabase/.temp/

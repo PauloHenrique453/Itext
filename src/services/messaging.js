@@ -14,7 +14,7 @@ export function messagesClient(client) {
     identity,
     async people() {
       const id = await identity()
-      const { data, error } = await client.from('chat_profiles').select('id,name,avatar_url').neq('id', id).order('name').limit(100)
+      const { data, error } = await client.from('itext_public_profiles').select('id,name,avatar_url').neq('id', id).order('name').limit(100)
       if (error) throw error
       return data
     },

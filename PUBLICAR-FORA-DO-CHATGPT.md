@@ -12,7 +12,8 @@ O site antigo do Sites continua separado. Seus dados não são migrados automati
 2. No SQL Editor, execute `supabase/google-chat.sql` uma única vez. Se `chat_profiles` e `direct_messages` já existem, essa etapa está concluída.
 3. Execute **supabase/social.sql** uma vez. Esse arquivo acrescenta perfis sociais, publicações, curtidas, comentários, grupos, páginas, conexões e o bucket privado de mídia, sem dados fictícios. As conversas existentes ficam preservadas.
 4. Execute **supabase/creator-privacy.sql** uma vez. Ele acrescenta as chaves protegidas e as políticas de acesso declarado do criador. Mensagens antigas ficam preservadas e identificadas como anteriores à criptografia; não há novos envios em texto simples.
-5. Copie Project URL e Publishable key de Settings → API Keys. O código usa somente a chave pública `sb_publishable_`.
+5. Execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. Esse ajuste restringe as funções privilegiadas, as configurações privadas de perfil e as chaves. Não acrescente `itext_private` aos schemas expostos pela Data API. A ordem dos scripts acima é necessária; a migração de permissões sozinha não instala um banco vazio.
+6. Copie Project URL e Publishable key de Settings → API Keys. O código usa somente a chave pública `sb_publishable_`.
 
 ## Google
 

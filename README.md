@@ -4,7 +4,7 @@ Rede social sem dados de demonstração, com Google Auth e mensagens privadas em
 
 ## Configuração
 
-1. No Supabase SQL Editor, execute uma vez, nesta ordem: `supabase/google-chat.sql`, `supabase/social.sql` e `supabase/creator-privacy.sql`. Pule apenas os arquivos já aplicados. A última migração preserva mensagens antigas e bloqueia novas mensagens sem criptografia.
+1. No Supabase SQL Editor, execute uma vez, nesta ordem: `supabase/google-chat.sql`, `supabase/social.sql` e `supabase/creator-privacy.sql`. Pule apenas os arquivos já aplicados. Depois, execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. As migrações preservam mensagens antigas e bloqueiam novas mensagens sem criptografia.
 2. Configure Google em Authentication → Providers. A callback é a indicada pelo Supabase.
 3. Copie `.env.independent.example` para `.env.independent.local` e preencha a chave pública `sb_publishable_`. Nunca use Client Secret ou service_role no frontend.
 4. Crie um projeto Firebase no plano Spark, usando Hosting clássico, sem App Hosting e sem ativar faturamento.
@@ -53,3 +53,5 @@ Mensagens anteriores à migração continuam em texto no banco e são marcadas n
 Antes de liberar o chat aos usuários, aplique as migrações, ative a conta e a chave do criador e valide no projeto real o login Google, a entrega por WebSocket e o isolamento entre participantes, criador e outra conta. Os testes locais e a verificação de dependências reduzem riscos, mas não constituem garantia de ausência de falhas.
 
 O comando de publicação executa `npm run check:deployment` antes do build. Ele exige que o provedor Google e a estrutura social e de criptografia estejam disponíveis e que as tabelas privadas recusem acesso anônimo. A primeira publicação permite criar a identidade Google do criador, com o chat bloqueado até sua configuração. O comando informa se a chave pública do criador foi cadastrada; isso não prova que o código de recuperação funciona. Falha de rede ou verificação incompleta interrompe a publicação. O teste com contas reais continua necessário para verificar o isolamento entre usuários autenticados.
+
+As funções privilegiadas ficam em `itext_private`, que deve permanecer fora dos schemas expostos na Data API do Supabase. As funções públicas são wrappers com permissões do chamador. As visualizações públicas projetam somente campos públicos; configurações completas do perfil e cofres de chaves ficam restritos à própria conta. A migração de permissões revoga também concessões diretas de `anon`/`authenticated`, pois os padrões do Supabase podem concedê-las independentemente de `PUBLIC`.
