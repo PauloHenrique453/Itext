@@ -2,6 +2,8 @@
 
 Rede social sem dados de demonstração, com Google Auth e mensagens privadas em tempo real. O frontend é hospedado no Firebase Hosting; dados, autenticação e arquivos usam Supabase. Não precisa de servidor próprio, Cloudflare, R2, Firebase Functions ou plano Blaze.
 
+No Windows, siga [PUBLICAR-NO-WINDOWS.md](PUBLICAR-NO-WINDOWS.md) para baixar uma versão fixa e publicar pelo PowerShell com sua própria conta Google.
+
 ## Configuração
 
 1. No Supabase SQL Editor, execute uma vez, nesta ordem: `supabase/google-chat.sql`, `supabase/social.sql` e `supabase/creator-privacy.sql`. Pule apenas os arquivos já aplicados. Depois, execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. As migrações preservam mensagens antigas e bloqueiam novas mensagens sem criptografia.
