@@ -1,0 +1,2 @@
+-- Execute google-chat.sql once, then social.sql once.
+-- If chat already exists, execute only social.sql. Both use Supabase Free.
