@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { enabledLoginProviders, loginOptions, readLoginCallback, loginErrorMessage } from './loginOptions.js'
 
 export const independent = true
 const url = import.meta.env.VITE_SUPABASE_URL
@@ -12,19 +13,15 @@ export async function initializeAuth() {
   if (!independent) return null
   if (!supabase) throw new Error('O login Google ainda não foi configurado pelo administrador.')
   initialized ||= (async () => {
-    const current = new URL(window.location.href)
-    const code = current.searchParams.get('code')
-    const oauthError = current.searchParams.get('error_description')
-    if (oauthError) {
-      current.searchParams.delete('error_description'); current.searchParams.delete('error'); current.searchParams.delete('error_code')
-      window.history.replaceState({}, '', `${current.pathname}${current.search}`)
-      throw new Error(oauthError)
+    const callback = readLoginCallback(window.location.href)
+    if (callback.error || callback.code) {
+      // Consume the callback once, including error fragments that used to disappear silently.
+      window.history.replaceState({}, '', callback.cleaned)
     }
-    if (code) {
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
-      current.searchParams.delete('code')
-      window.history.replaceState({}, '', `${current.pathname}${current.search}${current.hash}`)
-      if (error) throw error
+    if (callback.error) throw new Error(loginErrorMessage(callback.error))
+    if (callback.code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(callback.code)
+      if (error) throw new Error(loginErrorMessage(error))
     }
     const { data, error } = await supabase.auth.getSession()
     if (error) throw error
@@ -41,12 +38,26 @@ export async function accessToken() {
   return data.session?.access_token || null
 }
 
-export async function signInWithGoogle() {
+export async function getLoginProviders() {
+  if (!supabase) throw new Error('O serviço de login ainda não foi configurado.')
+  const response = await fetch(`${new URL(url).origin}/auth/v1/settings`, {
+    headers: { apikey: key }, signal: AbortSignal.timeout(10000),
+  })
+  if (!response.ok) throw new Error('Não foi possível carregar as formas de entrar. Tente novamente.')
+  return enabledLoginProviders(await response.json())
+}
+
+export async function signInWithProvider(provider) {
   await initializeAuth()
-  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: {
-    redirectTo: `${window.location.origin}/`, scopes: 'openid email profile',
-  } })
+  // Recheck availability at the time of the action, without displaying unconfigured providers.
+  const enabled = await getLoginProviders()
+  if (!enabled.some((entry) => entry.id === provider)) throw new Error('Essa forma de entrar não está disponível no momento.')
+  const { error } = await supabase.auth.signInWithOAuth({ provider, options: loginOptions(provider, window.location.origin, window.location.search) })
   if (error) throw error
+}
+
+export async function signInWithGoogle() {
+  return signInWithProvider('google')
 }
 
 export async function signOut() {
