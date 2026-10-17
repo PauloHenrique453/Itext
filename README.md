@@ -43,3 +43,5 @@ O repositório contém somente configuração pública do cliente. A chave `sb_p
 Perfis sociais são públicos. Mensagens têm acesso restrito aos participantes pelas políticas do Postgres. O chat não implementa criptografia ponta a ponta: administradores com acesso ao banco ainda têm acesso técnico aos registros.
 
 Antes de abrir o site aos usuários, aplique `supabase/social.sql` e valide no projeto real o login Google, a entrega por WebSocket e o isolamento entre três contas. Os testes locais e a verificação de dependências reduzem riscos, mas não constituem garantia de ausência de falhas.
+
+O comando de publicação executa `npm run check:deployment` antes do build. Ele exige que o provedor Google e a estrutura social estejam disponíveis e que as tabelas privadas recusem acesso anônimo. Falha de rede ou verificação incompleta interrompe a publicação. O teste com contas reais continua necessário para verificar o isolamento entre usuários autenticados.
