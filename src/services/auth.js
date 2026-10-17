@@ -1,3 +1,4 @@
+import { lockChatSession } from './chatSession.js'
 import { createClient } from '@supabase/supabase-js'
 import { enabledLoginProviders, loginOptions, readLoginCallback, loginErrorMessage } from './loginOptions.js'
 
@@ -61,6 +62,7 @@ export async function signInWithGoogle() {
 }
 
 export async function signOut() {
+  lockChatSession()
   const { error } = await supabase.auth.signOut()
   if (error) throw error
   window.location.assign('/')

@@ -1,4 +1,6 @@
 import { build, loadEnv } from 'vite'
+import { randomUUID } from 'node:crypto'
+import { writeFile } from 'node:fs/promises'
 const loaded = loadEnv('independent', process.cwd(), 'VITE_')
 const config = { ...loaded, ...process.env }
 for (const name of ['VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY']) {
@@ -10,5 +12,7 @@ if (!config.VITE_SUPABASE_PUBLISHABLE_KEY.startsWith('sb_publishable_')) throw n
 process.env.VITE_AUTH_PROVIDER = 'supabase'
 process.env.VITE_SUPABASE_URL = config.VITE_SUPABASE_URL
 process.env.VITE_SUPABASE_PUBLISHABLE_KEY = config.VITE_SUPABASE_PUBLISHABLE_KEY
-await build({ mode: 'independent' })
+const version = { id: randomUUID(), created_at: new Date().toISOString() }
+await build({ mode: 'independent', define: { __ITEXT_VERSION__: JSON.stringify(version.id) } })
+await writeFile('dist/version.json', JSON.stringify(version))
 console.log('Site estático pronto em dist/ para Firebase Hosting. Autenticação e dados usam Supabase.')

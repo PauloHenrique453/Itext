@@ -1,3 +1,4 @@
+import { rememberChatSession } from './chatSession.js'
 import { createVault, decryptMessage, encryptMessage, PRIVACY_NOTICE, unlockVault } from './chatCrypto.js'
 
 export function privacyClient(client) {
@@ -34,7 +35,7 @@ export function privacyClient(client) {
     async unlock(state, code) {
       const privateKey = await unlockVault(state.vault, code)
       // The decrypted key remains only in this in-memory session, never localStorage.
-      return {
+      const session = {
         id: state.id, ownerId: state.ownerId, isOwner: state.isOwner,
         async encrypt(partner, text, messageId) {
           const records = await directory([state.id, partner, state.ownerId])
@@ -49,6 +50,8 @@ export function privacyClient(client) {
           }))
         },
       }
+      rememberChatSession(session)
+      return session
     },
   }
 }

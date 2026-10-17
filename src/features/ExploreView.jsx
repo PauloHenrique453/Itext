@@ -12,7 +12,7 @@ const topics = [
 
 const includes = (value, query) => String(value || '').toLocaleLowerCase().includes(query)
 
-export default function ExploreView({ initialQuery = '', onNavigate, posts = [], profiles = [], communities = [], pages = [], user }) {
+export default function ExploreView({ initialQuery = '', onNavigate, posts = [], profiles = [], communities = [], pages = [], user, onFindPeople }) {
   const [query, setQuery] = useState(initialQuery)
   const normalized = query.trim().toLocaleLowerCase()
   const results = useMemo(() => {
@@ -28,7 +28,7 @@ export default function ExploreView({ initialQuery = '', onNavigate, posts = [],
   const trends = [...new Set(posts.flatMap((post) => post.tags || []))].slice(0, 4)
 
   return <main className="feature-view">
-    <ViewHeader title="Explorar" subtitle="Perfis, grupos e publicações separados pelo que combina com você." />
+    <ViewHeader title="Explorar" subtitle="Perfis, grupos e publicações separados pelo que combina com você." action={<button className="secondary-button" onClick={onFindPeople}><UsersRound size={17}/>Encontrar pessoas</button>} />
     <div className="feature-content explore-content">
       <label className="explore-search"><Search size={21} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busque pessoas, assuntos, páginas e grupos" /></label>
       {normalized ? <div className="explore-results">

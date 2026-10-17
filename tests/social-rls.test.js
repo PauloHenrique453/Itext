@@ -19,6 +19,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/social.sql','utf8'))
  await db.exec(readFileSync('supabase/creator-privacy.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261017192931_restrict_itext_api_privileges.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261017223908_improve_social_and_chat.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -159,5 +160,59 @@ test('API wrappers preserve public access while full profiles, private vaults an
     await assert.rejects(db.query(`select public.${call}`))
     await assert.rejects(db.query(`select itext_private.${call}`))
   }
+ }finally{await db.close()}
+})
+
+
+test('follower counts reflect real follows and removals',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  await db.query('insert into public.itext_follows(follower_id,following_id) values($1,$2)',[ONE,TWO])
+  await as(db,THREE)
+  await db.query('insert into public.itext_follows(follower_id,following_id) values($1,$2)',[THREE,TWO])
+  await as(db)
+  assert.equal((await db.query('select followers from public.itext_profile_counts where id=$1',[TWO])).rows[0].followers,2)
+  await as(db,ONE)
+  await db.query('delete from public.itext_follows where follower_id=$1 and following_id=$2',[ONE,TWO])
+  assert.equal((await db.query('select followers from public.itext_profile_counts where id=$1',[TWO])).rows[0].followers,1)
+  const following=(await db.query("select * from public.itext_people('',null,'following')")).rows
+  assert.equal(following.length,0)
+  await as(db,THREE)
+  assert.equal((await db.query("select * from public.itext_people('',null,'following')")).rows[0].profile.id,TWO)
+  await as(db,TWO)
+  const followers=(await db.query("select * from public.itext_people('',null,'followers')")).rows
+  assert.equal(followers.length,1);assert.equal(followers[0].profile.id,THREE)
+  assert.equal('settings' in followers[0].profile,false)
+ }finally{await db.close()}
+})
+
+test('read receipts require the actual recipient and unread counts stay private even from creator review',async()=>{
+ const db=await setup()
+ try{
+  await db.exec('reset role')
+  await db.query('insert into public.itext_chat_privacy(owner_id) values($1)',[ONE])
+  const mids=['00000000-0000-0000-0000-000000000010','00000000-0000-0000-0000-000000000011','00000000-0000-0000-0000-000000000012']
+  for(const mid of mids)await db.query("insert into public.direct_messages(id,sender_id,recipient_id,owner_id,encryption_version,body,created_at) values($1,$2,$3,$4,1,'-----BEGIN PGP MESSAGE-----fixture','2026-10-17T12:00:00Z')",[mid,TWO,THREE,ONE])
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.direct_messages')).rows.length,3)
+  assert.equal((await db.query('select * from public.itext_chat_inbox')).rows.length,0)
+  await assert.rejects(db.query('select public.itext_mark_message_read($1)',[mids[1]]))
+  await as(db,TWO)
+  await assert.rejects(db.query('select public.itext_mark_message_read($1)',[mids[1]]))
+  await as(db,THREE)
+  assert.equal((await db.query('select unread from public.itext_chat_inbox')).rows[0].unread,3)
+  await assert.rejects(db.query('insert into public.itext_conversation_reads(user_id,partner_id,last_read_at,last_read_id) values($1,$2,now(),$3)',[THREE,TWO,mids[2]]))
+  await db.query('select public.itext_mark_message_read($1)',[mids[1]])
+  assert.equal((await db.query('select unread from public.itext_chat_inbox')).rows[0].unread,1)
+  await db.query('select public.itext_mark_message_read($1)',[mids[0]])
+  assert.equal((await db.query('select last_read_id from public.itext_conversation_reads')).rows[0].last_read_id,mids[1])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_conversation_reads')).rows.length,1)
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.itext_conversation_reads')).rows.length,0)
+  await as(db)
+  for(const name of ['itext_chat_inbox','itext_conversation_reads'])await assert.rejects(db.query(`select * from public.${name}`))
+  await assert.rejects(db.query('select public.itext_mark_message_read($1)',[mids[2]]))
  }finally{await db.close()}
 })

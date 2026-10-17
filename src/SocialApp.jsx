@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Code2, PanelsTopLeft, Send, UsersRound } from 'lucide-react'
+import { Code2, Menu, MessageCircle, PanelsTopLeft, Send, UserPlus, UsersRound } from 'lucide-react'
 import Brand from './components/Brand.jsx'
 import Avatar from './components/Avatar.jsx'
 import MobileNav from './components/MobileNav.jsx'
@@ -15,6 +15,9 @@ import Onboarding from './features/Onboarding.jsx'
 import PagesView from './features/PagesView.jsx'
 import ProfileView from './features/ProfileView.jsx'
 import SettingsView from './features/SettingsView.jsx'
+import PeopleView from './features/PeopleView.jsx'
+import useUnreadCount from './hooks/useUnreadCount.js'
+import { navItems } from './components/Sidebar.jsx'
 import MessagesView from './features/MessagesView.jsx'
 import { independent, signOut } from './services/auth.js'
 import ShortsView from './features/ShortsView.jsx'
@@ -68,7 +71,11 @@ export default function SocialApp() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [toast, setToast] = useState('')
+  const [conversationTarget, setConversationTarget] = useState(null)
+  const [showMenu, setShowMenu] = useState(false)
+  const [peopleFilter, setPeopleFilter] = useState('all')
   const backend = useItextBackend()
+  const unread = useUnreadCount(backend.user?.authenticated ? backend.user.id : null)
 
   const notify = useCallback((message) => setToast(message), [])
 
@@ -100,8 +107,19 @@ export default function SocialApp() {
   }, [])
 
   function navigate(view) {
+    if (view === 'messages') setConversationTarget(null)
+    if (view === 'people') setPeopleFilter('all')
+    setShowMenu(false)
     setActiveView(view)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function openPeople(filter='all') {
+    setPeopleFilter(filter); setActiveView('people'); setShowMenu(false)
+  }
+
+  function startConversation(person) {
+    setConversationTarget(person); setActiveView('messages'); setShowMenu(false)
   }
 
   function search(query) {
@@ -127,13 +145,14 @@ export default function SocialApp() {
 
   let view
   switch (activeView) {
-    case 'explore': view = <ExploreView key={searchQuery} initialQuery={searchQuery} onNavigate={navigate} posts={backend.posts} profiles={backend.profiles} communities={backend.communities} pages={backend.pages} user={backend.user} />; break
-    case 'messages': view = <MessagesView user={backend.user} onNotify={notify} />; break
+    case 'explore': view = <ExploreView key={searchQuery} initialQuery={searchQuery} onNavigate={navigate} onFindPeople={() => navigate('people')} posts={backend.posts} profiles={backend.profiles} communities={backend.communities} pages={backend.pages} user={backend.user} />; break
+    case 'people': view = <PeopleView key={peopleFilter} initialFilter={peopleFilter} user={backend.user} onFollow={backend.toggleProfileFollow} onMessage={startConversation} onNotify={notify} />; break
+    case 'messages': view = <MessagesView user={backend.user} onNotify={notify} initialPerson={conversationTarget} onFindPeople={() => navigate('people')} />; break
     case 'shorts': view = <ShortsView posts={backend.posts} />; break
     case 'dating': view = <DatingView user={backend.user} data={backend.dating} onLoad={backend.getDating} onSave={backend.saveDatingProfile} onSwipe={backend.swipeDatingProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
     case 'communities': view = <CommunitiesView communities={backend.communities} onCreateCommunity={backend.createCommunity} onOpenGroup={backend.openGroup} onJoinGroup={backend.joinGroup} onApproveMember={backend.approveGroupMember} onNotify={notify} />; break
     case 'pages': view = <PagesView pages={backend.pages} onCreatePage={backend.createPage} onToggleFollow={backend.togglePageFollow} onNotify={notify} />; break
-    case 'profile': view = <ProfileView posts={backend.ownPosts} user={backend.user} communities={backend.communities} pages={backend.pages} onNavigate={navigate} onSaveProfile={backend.saveProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
+    case 'profile': view = <ProfileView onPeople={() => openPeople('followers')} posts={backend.ownPosts} user={backend.user} communities={backend.communities} pages={backend.pages} onNavigate={navigate} onSaveProfile={backend.saveProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
     case 'settings': view = <SettingsView user={backend.user} onSave={backend.saveSettings} onSaveInterests={backend.savePreferences} onNotify={notify} />; break
     default: view = <FeedView posts={backend.posts} user={backend.user} communities={backend.communities} pages={backend.pages} feedMode={backend.feedMode} setFeedMode={backend.setFeedMode} onPublish={backend.publishPost} onUploadMedia={backend.uploadMedia} onToggleLike={toggleLike} onAddComment={addComment} onNotify={notify} onSearch={search} />
   }
@@ -142,11 +161,12 @@ export default function SocialApp() {
 
   return (
     <div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}`}>
-      <Sidebar activeView={activeView} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} />
-      <header className="mobile-header"><button onClick={() => navigate('home')}><Brand /></button><div className="mobile-header__actions"><button className="mobile-profile-button" onClick={() => navigate('profile')} aria-label="Abrir meu perfil"><Avatar src={backend.user.avatar} alt="" size="xs" /></button></div></header>
+      <Sidebar activeView={activeView} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} unread={unread} />
+      <header className="mobile-header"><button onClick={() => navigate('home')}><Brand /></button><div className="mobile-header__actions"><button onClick={() => navigate('people')} aria-label="Encontrar pessoas"><UserPlus size={20}/></button><button onClick={() => navigate('messages')} aria-label={`Mensagens${unread ? `, ${unread} não lidas` : ''}`} className="unread-icon"><MessageCircle size={20}/>{unread ? <b>{unread > 99 ? '99+' : unread}</b> : null}</button><button onClick={() => setShowMenu(true)} aria-label="Abrir menu"><Menu size={20}/></button><button className="mobile-profile-button" onClick={() => navigate('profile')} aria-label="Abrir meu perfil"><Avatar src={backend.user.avatar} alt="" size="xs" /></button></div></header>
       <div className="app-main">{independent && backend.user.authenticated ? <div className="signin-banner"><span>{backend.user.name}</span><button className="secondary-button" onClick={() => signOut().catch((error) => notify(error.message))}>Sair</button></div> : null}{view}</div>
       {hideRightRail ? null : <RightRail onSearch={search} posts={backend.posts} profiles={backend.profiles} user={backend.user} onFollow={backend.toggleProfileFollow} onNotify={notify} />}
-      <MobileNav activeView={activeView} onNavigate={navigate} onCreate={() => setShowCreate(true)} />
+      <MobileNav activeView={activeView} onNavigate={navigate} onCreate={() => setShowCreate(true)} unread={unread} />
+      {showMenu ? <Modal title="Navegar no Itext" onClose={() => setShowMenu(false)}><nav className="mobile-menu-grid" aria-label="Todas as páginas">{navItems.map(({id,label,icon:Icon}) => <button key={id} onClick={() => navigate(id)}><Icon size={22}/>{label}</button>)}</nav></Modal> : null}
       {showCreate ? <QuickCreate onClose={() => setShowCreate(false)} onPublish={backend.publishPost} onNavigate={navigate} onNotify={notify} /> : null}
       {backend.user.authenticated && !backend.user.onboardingComplete ? <Onboarding user={backend.user} onComplete={completeOnboarding} /> : null}
       <Toast message={toast} />

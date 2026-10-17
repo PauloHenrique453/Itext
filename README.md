@@ -6,7 +6,7 @@ No Windows, siga [PUBLICAR-NO-WINDOWS.md](PUBLICAR-NO-WINDOWS.md) para baixar um
 
 ## Configuração
 
-1. No Supabase SQL Editor, execute uma vez, nesta ordem: `supabase/google-chat.sql`, `supabase/social.sql` e `supabase/creator-privacy.sql`. Pule apenas os arquivos já aplicados. Depois, execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. As migrações preservam mensagens antigas e bloqueiam novas mensagens sem criptografia.
+1. No Supabase SQL Editor, execute uma vez, nesta ordem: `supabase/google-chat.sql`, `supabase/social.sql` e `supabase/creator-privacy.sql`. Pule apenas os arquivos já aplicados. Depois, execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql` e `supabase/migrations/20261017223908_improve_social_and_chat.sql`, nessa ordem. As migrações preservam mensagens antigas e bloqueiam novas mensagens sem criptografia.
 2. Configure Google em Authentication → Providers. A callback é a indicada pelo Supabase.
 3. Copie `.env.independent.example` para `.env.independent.local` e preencha a chave pública `sb_publishable_`. Nunca use Client Secret ou service_role no frontend.
 4. Crie um projeto Firebase no plano Spark, usando Hosting clássico, sem App Hosting e sem ativar faturamento.
@@ -48,7 +48,7 @@ Perfis sociais são públicos. Mensagens novas usam OpenPGP.js no navegador: o t
 
 A conta do criador é escolhida no SQL Editor pelo UID Google verificado. Nome, e-mail informado no perfil e configurações do navegador não concedem privilégios. Usuários comuns não podem alterar a designação nem substituir chaves cadastradas. O criador possui uma tela de revisão de mensagens, e a RLS libera os registros somente para participantes e criador.
 
-Cada chave privada é armazenada no banco protegida por um código aleatório de 256 bits. O código nunca vai ao banco nem ao Git; a chave desbloqueada fica em memória até bloquear as mensagens ou sair da tela. É preciso guardar o código e usá-lo em outros aparelhos. Não existe redefinição automática ou rotação de chave nesta versão. O login Google sozinho não recupera a chave perdida. A conta do criador também precisa guardar seu próprio código.
+Cada chave privada é armazenada no banco protegida por um código aleatório de 256 bits. O código nunca vai ao banco nem ao Git; a chave desbloqueada fica em memória até bloquear as mensagens, sair da conta ou recarregar/fechar a página. É preciso guardar o código e usá-lo em outros aparelhos. Não existe redefinição automática ou rotação de chave nesta versão. O login Google sozinho não recupera a chave perdida. A conta do criador também precisa guardar seu próprio código.
 
 Mensagens anteriores à migração continuam em texto no banco e são marcadas na interface. Elas não são criptografadas retroativamente. Perfis, publicações e arquivos não recebem essa camada adicional; continuam protegidos pelas permissões e pela infraestrutura dos serviços. O dono do projeto tem acesso administrativo a esses registros pelo Supabase. Proteger esse painel e a conta de hospedagem continua necessário: quem controla o site pode alterar o código entregue aos usuários. Não há promessa de acesso exclusivo absoluto contra comprometimento da infraestrutura ou dos dispositivos.
 
@@ -67,3 +67,11 @@ O Google sempre abre a seleção de conta. A página consulta as configurações
 Por exemplo, para habilitar GitHub, crie um OAuth App em GitHub → Settings → Developer settings → OAuth Apps, usando a URL publicada como Homepage URL e a callback `https://qnjanobhsnvrxoraifcc.supabase.co/auth/v1/callback`. Configure o Client ID e o segredo somente em Supabase → Authentication → Sign In / Providers → GitHub e habilite o provedor. Microsoft usa o provedor Azure e exige registro de aplicativo correspondente na plataforma Microsoft. Cada provedor deve ser testado com uma conta real antes de ser anunciado como disponível.
 
 Erros OAuth ficam visíveis na entrada, com mensagens compreensíveis, e parâmetros temporários de autenticação são removidos do endereço. Um novo login conserva os parâmetros dos convites de grupos. A proteção do chat e a designação do criador não foram alteradas por esta página.
+
+## Pessoas, perfis, conversas e novas versões
+
+A área Pessoas permite buscar perfis cadastrados, seguir/deixar de seguir e abrir uma conversa. As listas de seguidores e seguindo são filtradas e paginadas no banco; os contadores vêm de registros reais. O próprio perfil permite editar nome, biografia, foto, capa e tema, incluindo remover imagens. A navegação oferece esses recursos em celular, tablet e computador.
+
+O chat inclui contagem de não lidas, recibos de leitura persistidos, busca no histórico carregado, texto com várias linhas, emojis e cópia. Uma mensagem só é marcada como vista quando o destinatário a abre em uma conversa desbloqueada, com a aba visível e o fim da conversa à vista. A revisão do criador não marca mensagens de outras pessoas como lidas. As chaves desbloqueadas podem ser reutilizadas durante a navegação da mesma conta somente em memória; bloquear o chat, sair da conta ou recarregar a página exige desbloquear de novo. Rascunhos de conversa ficam em memória, sem salvar texto privado no armazenamento do navegador.
+
+O build gera um identificador próprio e `dist/version.json`. A página verifica esse arquivo sem cache a cada minuto enquanto está visível e ao recuperar foco/conexão. Se o servidor tiver outra versão, aparece um aviso com Atualizar agora. A atualização depende de uma ação do usuário e pede confirmação quando detecta conteúdo em edição. O Firebase precisa receber também o novo `firebase.json` e o script de build, além de `src/`. O aviso só funcionará para futuras publicações depois da primeira instalação desta funcionalidade.

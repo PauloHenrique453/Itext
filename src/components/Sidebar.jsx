@@ -10,6 +10,7 @@ import {
   Sparkles,
   SquarePlay,
   UserRound,
+  UserPlus,
   UsersRound,
 } from 'lucide-react'
 import Avatar from './Avatar.jsx'
@@ -17,6 +18,7 @@ import Brand from './Brand.jsx'
 
 export const navItems = [
   { id: 'home', label: 'Início', icon: Home },
+  { id: 'people', label: 'Pessoas', icon: UserPlus },
   { id: 'explore', label: 'Explorar', icon: Compass },
   { id: 'shorts', label: 'Ishort', icon: SquarePlay },
   { id: 'dating', label: 'Conexões', icon: Heart },
@@ -27,7 +29,7 @@ export const navItems = [
   { id: 'settings', label: 'Configurações', icon: Settings },
 ]
 
-export default function Sidebar({ activeView, onNavigate, onCreate, user }) {
+export default function Sidebar({ activeView, onNavigate, onCreate, user, unread=0 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar__top">
@@ -41,10 +43,11 @@ export default function Sidebar({ activeView, onNavigate, onCreate, user }) {
               key={id}
               onClick={() => onNavigate(id)}
               aria-current={activeView === id ? 'page' : undefined}
+              aria-label={label}
             >
               <Icon size={21} strokeWidth={activeView === id ? 2.4 : 1.8} />
               <span>{label}</span>
-              {badge ? <span className="nav-item__badge">{badge}</span> : null}
+              {(id === 'messages' ? unread : badge) ? <span className="nav-item__badge">{id === 'messages' ? unread : badge}</span> : null}
             </button>
           ))}
         </nav>

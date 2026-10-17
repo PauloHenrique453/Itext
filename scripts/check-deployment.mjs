@@ -20,12 +20,12 @@ export async function checkDeployment(config, fetcher = fetch) {
   const auth = await settings.json()
   if (auth.external?.google !== true) throw new Error('Ative o provedor Google no Supabase antes de publicar.')
   checks.push('Provedor Google habilitado')
-  for (const table of ['itext_public_profiles', 'itext_posts', 'itext_page_counts', 'itext_group_counts', 'itext_post_counts']) {
+  for (const table of ['itext_public_profiles', 'itext_posts', 'itext_page_counts', 'itext_group_counts', 'itext_post_counts', 'itext_profile_counts']) {
     const response = await request(`/rest/v1/${table}?select=*&limit=0`)
-    if (!response.ok) throw new Error(`A estrutura ${table} não está acessível. Confira a aplicação de supabase/social.sql.`)
+    if (!response.ok) throw new Error(`A estrutura ${table} não está acessível. Confira a aplicação de supabase/social.sql e das migrações posteriores.`)
   }
   checks.push('Estrutura pública do aplicativo disponível')
-  for (const table of ['direct_messages', 'chat_profiles', 'itext_dating', 'itext_swipes', 'itext_group_invites', 'itext_chat_keys', 'itext_chat_privacy', 'itext_chat_public_keys']) {
+  for (const table of ['direct_messages', 'chat_profiles', 'itext_dating', 'itext_swipes', 'itext_group_invites', 'itext_chat_keys', 'itext_chat_privacy', 'itext_chat_public_keys', 'itext_conversation_reads', 'itext_chat_inbox']) {
     const response = await request(`/rest/v1/${table}?select=*&limit=0`)
     if (![401, 403].includes(response.status)) {
       throw new Error(`Acesso anônimo a ${table} não foi bloqueado como esperado. Revise as permissões antes de publicar.`)

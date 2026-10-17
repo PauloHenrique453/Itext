@@ -1,7 +1,23 @@
+const avatarCache = new Map()
+async function chatAvatar(client, value) {
+  if (!value?.startsWith('itext-media:')) return value
+  const path = value.slice(12)
+  const cached = avatarCache.get(path)
+  if (cached && cached.expires > Date.now()) return cached.url
+  const { data, error } = await client.storage.from('itext-media').createSignedUrl(path,3600)
+  if (error) return null
+  avatarCache.set(path,{url:data.signedUrl,expires:Date.now()+3300000})
+  return data.signedUrl
+}
+
 export function mergeMessages(current, incoming) {
   const rows = new Map(current.map((row) => [row.id, row]))
   for (const row of incoming) rows.set(row.id, row)
   return [...rows.values()].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+}
+
+export function messageWasRead(message, receipt) {
+  return !!receipt && (message.created_at < receipt.last_read_at || (message.created_at === receipt.last_read_at && message.id <= receipt.last_read_id))
 }
 
 export function messagesClient(client) {
@@ -14,9 +30,42 @@ export function messagesClient(client) {
     identity,
     async people() {
       const id = await identity()
-      const { data, error } = await client.from('itext_public_profiles').select('id,name,avatar_url').neq('id', id).order('name').limit(100)
+      const directory = await client.from('itext_public_profiles').select('id,name,avatar_url').neq('id', id).order('name').limit(100)
+      let data = directory.data
+      const error = directory.error
+      if (error) throw error
+      const recent = await client.from('itext_chat_inbox').select('partner_id').order('last_message_at',{ascending:false}).limit(100)
+      if (recent.error) throw recent.error
+      const missing = recent.data.map((row) => row.partner_id).filter((partner) => !data.some((person) => person.id === partner))
+      if (missing.length) {
+        const extra = await client.from('itext_public_profiles').select('id,name,avatar_url').in('id',missing)
+        if (extra.error) throw extra.error
+        data = [...data,...extra.data]
+      }
+      if (!data.length) return []
+      const keys = await client.from('itext_chat_public_keys').select('user_id').in('user_id',data.map((person) => person.id))
+      if (keys.error) throw keys.error
+      return Promise.all(data.map(async (person) => ({ ...person, avatar_url: await chatAvatar(client, person.avatar_url), ready: keys.data.some((key) => key.user_id === person.id) })))
+    },
+    async person(id) {
+      const profile = await client.from('itext_public_profiles').select('id,name,avatar_url').eq('id',id).single()
+      const key = await client.from('itext_chat_public_keys').select('user_id').eq('user_id',id).maybeSingle()
+      if (profile.error || key.error) throw profile.error || key.error
+      return { ...profile.data, avatar_url: await chatAvatar(client, profile.data.avatar_url), ready: !!key.data }
+    },
+    async inbox() {
+      const { data, error } = await client.from('itext_chat_inbox').select('*')
       if (error) throw error
       return data
+    },
+    async receipts() {
+      const { data, error } = await client.from('itext_conversation_reads').select('*')
+      if (error) throw error
+      return data
+    },
+    async markRead(messageId) {
+      const { error } = await client.rpc('itext_mark_message_read', { message_id: messageId })
+      if (error) throw error
     },
     async history(partnerId, before = null) {
       const id = await identity()
@@ -50,12 +99,15 @@ export function messagesClient(client) {
       }
       return data
     },
-    listen(userId, onMessage, onStatus, creator = false) {
+    listen(userId, onMessage, onStatus, creator = false, onReceipt = () => {}) {
       let channel = client.channel(`inbox-${userId}-${crypto.randomUUID()}`)
       if (creator) channel = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, ({ new: row }) => onMessage(row))
       else channel = channel
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${userId}` }, ({ new: row }) => onMessage(row))
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${userId}` }, ({ new: row }) => onMessage(row))
+      for (const field of ['user_id', 'partner_id']) for (const event of ['INSERT', 'UPDATE']) {
+        channel = channel.on('postgres_changes', { event, schema: 'public', table: 'itext_conversation_reads', filter: `${field}=eq.${userId}` }, ({ new: row }) => onReceipt(row))
+      }
       channel.subscribe(onStatus)
       return () => { void client.removeChannel(channel) }
     },

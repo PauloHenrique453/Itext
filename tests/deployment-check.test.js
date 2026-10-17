@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { checkDeployment } from '../scripts/check-deployment.mjs'
 const config={VITE_SUPABASE_URL:'https://example.supabase.co',VITE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_test_configuration'}
-const privateTables=['direct_messages','chat_profiles','itext_dating','itext_swipes','itext_group_invites','itext_chat_keys','itext_chat_privacy','itext_chat_public_keys']
+const privateTables=['direct_messages','chat_profiles','itext_dating','itext_swipes','itext_group_invites','itext_chat_keys','itext_chat_privacy','itext_chat_public_keys','itext_conversation_reads','itext_chat_inbox']
 function service(change = () => null) {
   return async (address, options) => {
     assert.equal(options.headers.apikey, config.VITE_SUPABASE_PUBLISHABLE_KEY)

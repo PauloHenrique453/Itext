@@ -12,7 +12,7 @@ O site antigo do Sites continua separado. Seus dados não são migrados automati
 2. No SQL Editor, execute `supabase/google-chat.sql` uma única vez. Se `chat_profiles` e `direct_messages` já existem, essa etapa está concluída.
 3. Execute **supabase/social.sql** uma vez. Esse arquivo acrescenta perfis sociais, publicações, curtidas, comentários, grupos, páginas, conexões e o bucket privado de mídia, sem dados fictícios. As conversas existentes ficam preservadas.
 4. Execute **supabase/creator-privacy.sql** uma vez. Ele acrescenta as chaves protegidas e as políticas de acesso declarado do criador. Mensagens antigas ficam preservadas e identificadas como anteriores à criptografia; não há novos envios em texto simples.
-5. Execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. Esse ajuste restringe as funções privilegiadas, as configurações privadas de perfil e as chaves. Não acrescente `itext_private` aos schemas expostos pela Data API. A ordem dos scripts acima é necessária; a migração de permissões sozinha não instala um banco vazio.
+5. Execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. Esse ajuste restringe as funções privilegiadas, as configurações privadas de perfil e as chaves. Não acrescente `itext_private` aos schemas expostos pela Data API. Depois, execute `supabase/migrations/20261017223908_improve_social_and_chat.sql`, que acrescenta contadores de seguidores e recibos de leitura. A ordem dos scripts acima é necessária; a migração de permissões sozinha não instala um banco vazio.
 6. Copie Project URL e Publishable key de Settings → API Keys. O código usa somente a chave pública `sb_publishable_`.
 
 ## Google
@@ -83,7 +83,7 @@ A primeira publicação permite entrar com Google, mas o chat permanece bloquead
 
 OpenPGP.js criptografa e assina o texto novo no navegador para os dois participantes e para o criador. A interface informa claramente que o criador tem acesso. Não anuncie o produto como criptografia exclusiva entre os participantes. Outros conteúdos mantêm as permissões sociais e o acesso técnico do dono pelo painel Supabase; não recebem a criptografia adicional das mensagens.
 
-O repositório guarda somente o modelo SQL de ativação, nunca sua chave privada ou código. Uma chave privada protegida fica no banco; o código e a chave desbloqueada ficam no aparelho. Bloquear as mensagens ou sair da tela exige desbloquear novamente. A proteção também depende da segurança das contas administrativas, do código hospedado e dos aparelhos.
+O repositório guarda somente o modelo SQL de ativação, nunca sua chave privada ou código. Uma chave privada protegida fica no banco; o código e a chave desbloqueada ficam no aparelho. Bloquear as mensagens, sair da conta ou recarregar a página exige desbloquear novamente. A navegação dentro da mesma sessão conserva a chave somente em memória. A proteção também depende da segurança das contas administrativas, do código hospedado e dos aparelhos.
 
 ## Testar de verdade
 

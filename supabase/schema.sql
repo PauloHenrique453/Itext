@@ -1,3 +1,4 @@
 -- Execute google-chat.sql, then social.sql, then creator-privacy.sql, each once.
 -- Skip only the scripts already applied. See ../PUBLICAR-FORA-DO-CHATGPT.md for creator activation.
 -- Then execute migrations/20261017192931_restrict_itext_api_privileges.sql once.
+-- Finally execute migrations/20261017223908_improve_social_and_chat.sql once.
