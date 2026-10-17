@@ -10,7 +10,8 @@ test('only configured creator can review all messages; users cannot promote them
   const as = async (id) => { await db.exec('reset role; set role authenticated'); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]) }
   try {
     await db.exec(`create role anon; create role authenticated; create schema auth;
-      create table auth.users(id uuid primary key,raw_user_meta_data jsonb not null default '{}');
+      create table auth.users(id uuid primary key,raw_user_meta_data jsonb not null default '{}',email_confirmed_at timestamptz);
+      create table auth.identities(user_id uuid references auth.users(id),provider text);
       create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
       grant usage on schema public,auth to authenticated,anon;`)
     await db.exec(readFileSync('supabase/google-chat.sql', 'utf8'))
@@ -19,7 +20,18 @@ test('only configured creator can review all messages; users cannot promote them
     await db.query('insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,$3)', [one,two,'legacy message'])
     await db.exec('reset role')
     await db.exec(readFileSync('supabase/creator-privacy.sql', 'utf8'))
-    await db.query('insert into public.itext_chat_privacy(owner_id) values($1)', [creator])
+    const activation = readFileSync('supabase/activate-creator.sql', 'utf8')
+    await db.query('update auth.users set email_confirmed_at=now() where id in ($1,$2)',[one,creator])
+    await db.query(`insert into auth.identities(user_id,provider) values($1,'google'),($2,'google')`,[creator,stranger])
+    // Verified non-Google and unverified Google identities cannot become creator.
+    for (const candidate of [one, stranger]) {
+      await assert.rejects(db.exec(activation.replaceAll('PREENCHER_USER_UID',candidate)),/Google verificada/)
+      await db.exec('rollback')
+    }
+    await db.exec(activation.replaceAll('PREENCHER_USER_UID',creator))
+    await assert.rejects(db.exec(activation.replaceAll('PREENCHER_USER_UID',creator)))
+    await db.exec('rollback')
+    assert.equal((await db.query('select public.itext_crypto_ready() as ready')).rows[0].ready,false)
     const publicKey = '-----BEGIN PGP PUBLIC KEY BLOCK-----\n' + 'x'.repeat(150)
     const vault = '-----BEGIN PGP PRIVATE KEY BLOCK-----\n' + 'y'.repeat(150)
     for (const id of ids) {
