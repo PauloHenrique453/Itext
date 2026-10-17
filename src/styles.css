@@ -916,3 +916,18 @@ h1, h2, h3, .brand__name { font-family: Manrope, Inter, sans-serif; }
 
 .chat-error { color: #ff9b9b; padding: 12px 20px; }
 .message-bubble p { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.chat-security { max-width: 680px; padding: 24px; margin: 0 auto; line-height: 1.6; }
+.chat-security form { display: grid; gap: 14px; margin-top: 24px; }
+.chat-security input:not([type=checkbox]) { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }
+.chat-security .recovery-code { font-family: monospace; }
+.chat-consent { display: flex; gap: 10px; align-items: flex-start; }
+.chat-consent input { margin-top: 7px; }
+.chat-privacy-notice { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
+.chat-privacy-notice p { flex: 1; margin: 0; }
+@media(max-width:600px) {
+  .messages-layout { display: flex; flex-direction: column; height: auto; overflow: visible; }
+  .chat-list { display: block; max-height: 220px; overflow-y: auto; border-bottom: 1px solid var(--line-soft); }
+  .conversation { min-height: 450px; max-height: 75vh; }
+  .chat-privacy-notice { flex-direction: column; align-items: flex-start; }
+}

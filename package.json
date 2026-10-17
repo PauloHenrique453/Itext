@@ -18,6 +18,7 @@
     "@supabase/supabase-js": "^2.118.0",
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",
+    "openpgp": "^6.3.2",
     "react": "latest",
     "react-dom": "latest",
     "typescript": "latest",

@@ -11,7 +11,8 @@ O site antigo do Sites continua separado. Seus dados não são migrados automati
 1. Crie o projeto Supabase no plano Free.
 2. No SQL Editor, execute `supabase/google-chat.sql` uma única vez. Se `chat_profiles` e `direct_messages` já existem, essa etapa está concluída.
 3. Execute **supabase/social.sql** uma vez. Esse arquivo acrescenta perfis sociais, publicações, curtidas, comentários, grupos, páginas, conexões e o bucket privado de mídia, sem dados fictícios. As conversas existentes ficam preservadas.
-4. Copie Project URL e Publishable key de Settings → API Keys. O código usa somente a chave pública `sb_publishable_`.
+4. Execute **supabase/creator-privacy.sql** uma vez. Ele acrescenta as chaves protegidas e as políticas de acesso declarado do criador. Mensagens antigas ficam preservadas e identificadas como anteriores à criptografia; não há novos envios em texto simples.
+5. Copie Project URL e Publishable key de Settings → API Keys. O código usa somente a chave pública `sb_publishable_`.
 
 ## Google
 
@@ -67,15 +68,32 @@ Em Supabase → Authentication → URL Configuration:
 
 A callback do provedor Google continua sendo a do Supabase. Não a substitua pelo endereço do Firebase.
 
+## Ativar sua conta de criador
+
+A primeira publicação permite entrar com Google, mas o chat permanece bloqueado. Não crie uma senha manual no Supabase para substituir esse login.
+
+1. Depois de autorizar o endereço do site, entre no Itext com **sua própria conta Google**.
+2. No Supabase → Authentication → Users, copie o **User UID** dessa conta.
+3. Em `supabase/activate-creator.sql`, substitua `PREENCHER_USER_UID` pelo UID. Execute o arquivo no SQL Editor do seu projeto. O script exige uma identidade Google verificada e recusa uma segunda designação. Nenhum usuário pode se promover pelo navegador.
+4. No Itext → Mensagens, gere seu código de recuperação. Guarde-o em um gerenciador de senhas ou local seguro, confirme o aviso de acesso e ative a chave.
+5. **Não envie o código de recuperação pelo chat, GitHub ou e-mail.** Ele abre sua chave, inclusive seu acesso de criador. O Google não recupera esse código. Não há redefinição automática ou rotação de chaves nesta versão.
+6. Outras pessoas ativam suas próprias chaves e guardam seus códigos. Só é possível enviar quando remetente, destinatário e criador têm chaves cadastradas.
+7. Sua conta verá “Revisar todas as mensagens”. As demais contas só veem as próprias conversas.
+
+OpenPGP.js criptografa e assina o texto novo no navegador para os dois participantes e para o criador. A interface informa claramente que o criador tem acesso. Não anuncie o produto como criptografia exclusiva entre os participantes. Outros conteúdos mantêm as permissões sociais e o acesso técnico do dono pelo painel Supabase; não recebem a criptografia adicional das mensagens.
+
+O repositório guarda somente o modelo SQL de ativação, nunca sua chave privada ou código. Uma chave privada protegida fica no banco; o código e a chave desbloqueada ficam no aparelho. Bloquear as mensagens ou sair da tela exige desbloquear novamente. A proteção também depende da segurança das contas administrativas, do código hospedado e dos aparelhos.
+
 ## Testar de verdade
 
 1. Abra o endereço publicado em dois navegadores usando contas Google diferentes.
 2. Entre nas contas e conclua os interesses iniciais.
 3. Publique, curta e comente. Recarregue e confirme que os dados continuam salvos.
-4. Abra Mensagens e envie entre as duas contas. O status “Conectado” depende da confirmação real do WebSocket.
-5. Feche e reabra o site para conferir o histórico.
-6. Verifique com uma terceira conta que conversas alheias não estão acessíveis.
-7. Teste um grupo privado/não listado: quem não participa não deve acessar posts nem arquivos desse grupo.
+4. Ative as chaves nas duas contas participantes e envie uma mensagem. O status “Conectado” depende da confirmação real do WebSocket. Confira no SQL Editor que `body` contém `BEGIN PGP MESSAGE`, sem o texto enviado, e `encryption_version = 1`.
+5. Feche e reabra o site para conferir o histórico usando o código de recuperação. Um código incorreto deve falhar.
+6. Entre com sua conta de criador e use “Revisar todas as mensagens”: ela deve abrir a conversa mesmo sem participar dela.
+7. Verifique com uma quarta conta que conversas alheias e cofres de chaves privadas não estão acessíveis. Alterar o nome para “Criador” não pode conceder acesso.
+8. Teste um grupo privado/não listado: quem não participa não deve acessar posts nem arquivos desse grupo.
 
 Os testes automatizados executam as políticas SQL em PostgreSQL local. Eles não substituem o teste final de Google OAuth e WebSocket nas suas contas.
 

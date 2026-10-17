@@ -21,32 +21,42 @@ export function messagesClient(client) {
     async history(partnerId, before = null) {
       const id = await identity()
       const cursor = before ? `,or(created_at.lt.${before.created_at},and(created_at.eq.${before.created_at},id.lt.${before.id}))` : ''
-      const query = client.from('direct_messages').select('id,sender_id,recipient_id,body,created_at')
+      const query = client.from('direct_messages').select('id,sender_id,recipient_id,body,created_at,encryption_version,owner_id')
         .or(`and(sender_id.eq.${id},recipient_id.eq.${partnerId}${cursor}),and(sender_id.eq.${partnerId},recipient_id.eq.${id}${cursor})`)
       const { data, error } = await query.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(100)
       if (error) throw error
       return data.reverse()
     },
-    async send(partnerId, body, messageId) {
+    async creatorHistory(before = null) {
+      await identity()
+      const allowed = await client.rpc('itext_is_creator')
+      if (allowed.error || allowed.data !== true) throw new Error('Acesso reservado ao criador.')
+      let query = client.from('direct_messages').select('id,sender_id,recipient_id,body,created_at,encryption_version,owner_id')
+      if (before) query = query.or(`created_at.lt.${before.created_at},and(created_at.eq.${before.created_at},id.lt.${before.id})`)
+      const { data, error } = await query.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(100)
+      if (error) throw error
+      return data.reverse()
+    },
+    async send(payload) {
       const id = await identity()
-      const text = body.trim()
-      if (!text || text.length > 4000 || partnerId === id) throw new Error('Mensagem inválida.')
-      // A retry reuses the UUID, allowing the caller to reconcile an uncertain send.
-      const { data, error } = await client.from('direct_messages').insert({ id: messageId, sender_id: id, recipient_id: partnerId, body: text }).select().single()
+      if (payload.sender_id !== id || payload.recipient_id === id || payload.encryption_version !== 1 || !payload.body.startsWith('-----BEGIN PGP MESSAGE-----')) throw new Error('Mensagem criptografada inválida.')
+      const { data, error } = await client.from('direct_messages').insert(payload).select().single()
       if (error) {
         if (error.code === '23505') {
-          const existing = await client.from('direct_messages').select().eq('id', messageId).single()
-          if (!existing.error && existing.data.sender_id === id && existing.data.recipient_id === partnerId && existing.data.body === text) return existing.data
+          const existing = await client.from('direct_messages').select().eq('id', payload.id).single()
+          if (!existing.error && ['sender_id', 'recipient_id', 'body', 'encryption_version', 'owner_id'].every((field) => existing.data[field] === payload[field])) return existing.data
         }
         throw error
       }
       return data
     },
-    listen(userId, onMessage, onStatus) {
-      const channel = client.channel(`inbox-${userId}-${crypto.randomUUID()}`)
+    listen(userId, onMessage, onStatus, creator = false) {
+      let channel = client.channel(`inbox-${userId}-${crypto.randomUUID()}`)
+      if (creator) channel = channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages' }, ({ new: row }) => onMessage(row))
+      else channel = channel
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `recipient_id=eq.${userId}` }, ({ new: row }) => onMessage(row))
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `sender_id=eq.${userId}` }, ({ new: row }) => onMessage(row))
-        .subscribe(onStatus)
+      channel.subscribe(onStatus)
       return () => { void client.removeChannel(channel) }
     },
   }
