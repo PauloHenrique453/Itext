@@ -1,4 +1,4 @@
--- Apply once in your own Supabase project. Social content remains in Cloudflare D1.
+-- Apply once in your own Supabase project, before social.sql. No demonstration data.
 create table if not exists public.chat_profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null check (char_length(name) between 1 and 80),
