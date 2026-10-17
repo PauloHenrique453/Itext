@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-O banco do projeto Supabase já recebeu a estrutura social, a criptografia e o ajuste de permissões. O código está preparado para Firebase Hosting clássico no projeto `itext-1b9da`. A publicação ainda precisa ser concluída com a conta Google dona desse projeto.
+O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase recebeu também a atualização de seguidores e leitura de mensagens. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
 ## 1. Conferir o Node.js
 
@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/f5c0281bf370af70e67809b14a09ba12629409af.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/af84036ceae52da1c680949e874d771d9ceb946e.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -81,9 +81,15 @@ Copie o **User UID** da sua conta e siga a seção “Ativar sua conta de criado
 
 Depois da publicação e da configuração, usuários entram diretamente no site. O ChatGPT e os plugins não são necessários para usar o Itext.
 
-## Atualizar a página de entrada em uma instalação existente
+## Atualizar o Itext já publicado
 
-No PowerShell, entre na mesma pasta do Itext onde você publicou o site. O bloco abaixo guarda uma cópia do código anterior e atualiza somente `src/`, mantendo sua configuração pública local e as dependências já instaladas. Depois executa a verificação, o build e a publicação.
+No PowerShell, entre na mesma pasta onde publicou o Itext:
+
+```powershell
+Set-Location -LiteralPath 'C:\Users\paulo\OneDrive\Documentos\Itext-7c599abb\Itext-45ef4d1f0b6baef675f560e801851064122d37d3'
+```
+
+Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cópia dos arquivos anteriores e atualiza a interface, os scripts de publicação e a configuração de cache. Preserva `.env.independent.local`, `.firebaserc`, dependências e login do Firebase. Não precisa executar `npm ci` novamente: as dependências desta atualização são as mesmas.
 
 ```powershell
 & {
@@ -97,20 +103,38 @@ No PowerShell, entre na mesma pasta do Itext onde você publicou o site. O bloco
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/f5c0281bf370af70e67809b14a09ba12629409af.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/af84036ceae52da1c680949e874d771d9ceb946e.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
+    $itextPastas = @('src', 'scripts', 'tests', 'supabase')
+    $itextArquivos = @('firebase.json', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md')
+    foreach ($itextItem in ($itextPastas + $itextArquivos)) {
+        if (-not (Test-Path -LiteralPath (Join-Path $itextFonte[0].FullName $itextItem))) { throw ('Arquivo ausente na atualizacao: ' + $itextItem) }
+    }
     $itextBackup = Join-Path $itextTemporario 'anterior'
     New-Item -ItemType Directory -Path $itextBackup | Out-Null
-    Copy-Item -LiteralPath '.\src' -Destination $itextBackup -Recurse
-    Copy-Item -Path (Join-Path $itextFonte[0].FullName 'src\*') -Destination '.\src' -Recurse -Force
-    Write-Host ('Copia do codigo anterior: ' + $itextBackup)
+    foreach ($itextItem in ($itextPastas + $itextArquivos)) {
+        if (Test-Path -LiteralPath $itextItem) { Copy-Item -LiteralPath $itextItem -Destination $itextBackup -Recurse }
+    }
+    Write-Host ('Copia dos arquivos anteriores: ' + $itextBackup)
+    foreach ($itextPasta in $itextPastas) {
+        if (-not (Test-Path -LiteralPath $itextPasta)) { New-Item -ItemType Directory -Path $itextPasta | Out-Null }
+        Copy-Item -Path (Join-Path $itextFonte[0].FullName ($itextPasta + '\*')) -Destination $itextPasta -Recurse -Force
+    }
+    foreach ($itextItem in $itextArquivos) {
+        Copy-Item -LiteralPath (Join-Path $itextFonte[0].FullName $itextItem) -Destination $itextItem -Force
+    }
     npm.cmd run deploy:firebase
-    if ($LASTEXITCODE -ne 0) { throw 'A atualizacao parou. Envie somente o erro mostrado acima.' }
+    if ($LASTEXITCODE -ne 0) { throw 'A atualizacao parou. Envie somente o erro mostrado acima, sem tokens.' }
+    Write-Host 'Atualizacao publicada. Abra https://itext-1b9da.web.app'
 }
 ```
 
-Aguarde **Deploy complete!**. Abra a Hosting URL em uma janela anônima para conferir a página antes do login. Quem já tem uma sessão válida continua entrando diretamente na comunidade. O Google oferece seleção de conta. Outros serviços aparecem somente após habilitar e configurar seus respectivos provedores no Supabase; veja a seção sobre outras contas no README.
+Aguarde **Deploy complete!**. Depois abra https://itext-1b9da.web.app em uma janela anônima para conferir a página antes do login. Quem já tem uma sessão válida continua entrando diretamente na comunidade. O Google oferece seleção de conta. Outros serviços aparecem somente depois de habilitar e configurar seus respectivos provedores no Supabase; veja a seção sobre outras contas no README.
 
-Este bloco atualiza a interface e o serviço de login. Ele não executa migrações nem altera registros ou chaves de recuperação do banco.
+A atualização inclui navegação para celular, tablet e computador, curtidas, seguidores, busca de pessoas, edição de perfil, mensagens não lidas, confirmação de leitura, busca no histórico carregado, emojis e aviso de nova versão. A confirmação de leitura depende de a pessoa abrir e desbloquear a conversa. O aviso de atualização funcionará para publicações futuras, após instalar esta primeira versão que contém o aviso.
+
+O bloco não executa migrações nem altera registros ou códigos de recuperação. A migração de seguidores e leitura já foi aplicada neste projeto Supabase. A conta do criador e sua chave continuam cadastradas; não precisa criá-las novamente. Para abrir mensagens, use seu código guardado no local seguro.
+
+Foram aprovados 22 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
