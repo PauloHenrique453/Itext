@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/62dd3edb2d5a4831aa6f4c1b4a33463dcf69331a.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b661b9334eef996a8517e976620106ce3c7e020e.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -89,7 +89,7 @@ No PowerShell, entre na mesma pasta onde publicou o Itext:
 Set-Location -LiteralPath 'C:\Users\paulo\OneDrive\Documentos\Itext-7c599abb\Itext-45ef4d1f0b6baef675f560e801851064122d37d3'
 ```
 
-Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cópia dos arquivos anteriores e atualiza a interface, os scripts de publicação e a configuração de cache. Preserva `.env.independent.local`, `.firebaserc`, dependências e login do Firebase. Não precisa executar `npm ci` novamente: as dependências desta atualização são as mesmas.
+Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cópia dos arquivos anteriores e atualiza a interface, o título da aba, o favicon, os scripts de publicação e a configuração de cache. Preserva `.env.independent.local`, `.firebaserc`, dependências e login do Firebase. Não precisa executar `npm ci` novamente: as dependências desta atualização são as mesmas.
 
 ```powershell
 & {
@@ -103,12 +103,12 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/62dd3edb2d5a4831aa6f4c1b4a33463dcf69331a.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b661b9334eef996a8517e976620106ce3c7e020e.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
-    $itextPastas = @('src', 'scripts', 'tests', 'supabase')
-    $itextArquivos = @('firebase.json', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md')
+    $itextPastas = @('src', 'scripts', 'tests', 'supabase', 'public')
+    $itextArquivos = @('firebase.json', 'index.html', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md')
     foreach ($itextItem in ($itextPastas + $itextArquivos)) {
         if (-not (Test-Path -LiteralPath (Join-Path $itextFonte[0].FullName $itextItem))) { throw ('Arquivo ausente na atualizacao: ' + $itextItem) }
     }
@@ -164,3 +164,6 @@ A revisão opcional passou em 32 testes e no build. A renderização do código 
 
 
 Depois de **Deploy complete!**, abra o site e recarregue. Você pode usar **Mensagens** diretamente. Para conferir a escolha opcional, abra Configurações: deverá aparecer somente a opção de proteção adicional desativada, sem o formulário de código. Uma chave antiga só é necessária para ler mensagens antigas que já tenham sido criptografadas ou para escolher o modo adicional. O PIN de bloqueio do aparelho permanece separado e opcional.
+
+
+O título da aba agora é apenas **Itext**, e o favicon usa o símbolo azul da marca. Esta revisão foi compilada; o HTML gerado referencia o favicon, cujo SVG foi validado e incluído no build. O bloco de atualização acima copia também `index.html` e `public/`, necessários para essas alterações. Depois de publicar, recarregue a página; se o ícone antigo persistir, feche e reabra a aba.
