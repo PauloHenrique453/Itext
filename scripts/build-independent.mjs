@@ -1,3 +1,4 @@
+import { prepareVideoEditor } from './prepare-video-editor.mjs'
 import { build, loadEnv } from 'vite'
 import { randomUUID } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
@@ -13,6 +14,7 @@ process.env.VITE_AUTH_PROVIDER = 'supabase'
 process.env.VITE_SUPABASE_URL = config.VITE_SUPABASE_URL
 process.env.VITE_SUPABASE_PUBLISHABLE_KEY = config.VITE_SUPABASE_PUBLISHABLE_KEY
 const version = { id: randomUUID(), created_at: new Date().toISOString() }
+await prepareVideoEditor()
 await build({ mode: 'independent', define: { __ITEXT_VERSION__: JSON.stringify(version.id) } })
 await writeFile('dist/version.json', JSON.stringify(version))
 console.log('Site estático pronto em dist/ para Firebase Hosting. Autenticação e dados usam Supabase.')

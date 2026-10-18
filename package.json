@@ -12,9 +12,12 @@
     "build:independent": "node scripts/build-independent.mjs",
     "deploy:independent": "npm run check:deployment && npm run build && firebase deploy --only hosting",
     "deploy:firebase": "npm run check:deployment && npm run build && firebase deploy --only hosting",
-    "check:deployment": "node scripts/check-deployment.mjs"
+    "check:deployment": "node scripts/check-deployment.mjs",
+    "predev": "node scripts/prepare-video-editor.mjs"
   },
   "dependencies": {
+    "@ffmpeg/core": "0.12.10",
+    "@ffmpeg/ffmpeg": "0.12.15",
     "@supabase/supabase-js": "^2.118.0",
     "@vitejs/plugin-react": "latest",
     "lucide-react": "latest",

@@ -11,3 +11,6 @@ dist/
 .firebase/
 
 supabase/.temp/
+
+# Generated from the pinned npm package during build.
+public/vendor/ffmpeg-0.12.10/

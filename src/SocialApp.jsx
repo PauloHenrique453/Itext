@@ -16,7 +16,7 @@ import PostDetailView from './features/PostDetailView.jsx'
 import NotificationsView from './features/NotificationsView.jsx'
 import PhotoViewer from './features/PhotoViewer.jsx'
 import { appearance } from './services/mediaFormats.js'
-import { PhotoNavigation,ProfileNavigation } from './components/ProfileNavigation.jsx'
+import { VideoNavigation,PhotoNavigation,ProfileNavigation } from './components/ProfileNavigation.jsx'
 import { usePresence,useNotificationCount } from './hooks/useActivity.js'
 import Onboarding from './features/Onboarding.jsx'
 import PagesView from './features/PagesView.jsx'
@@ -47,6 +47,10 @@ export default function SocialApp() {
   const [profileTarget,setProfileTarget]=useState(()=>new URLSearchParams(window.location.search).get('perfil'))
   const [postTarget,setPostTarget]=useState(()=>({id:new URLSearchParams(window.location.search).get('post'),commentId:null}))
   const [photoTarget,setPhotoTarget]=useState(()=>{const p=new URLSearchParams(window.location.search);return p.has('foto')?{postId:p.get('foto'),index:Math.max(0,Number(p.get('indice'))||0)}:null})
+  const [videoTarget,setVideoTarget]=useState(null)
+  useEffect(()=>{document.body.classList.toggle('has-short-viewer',!!videoTarget);return()=>document.body.classList.remove('has-short-viewer')},[videoTarget])
+  function openVideo(target){setVideoTarget(target)}
+  function closeVideo(){setVideoTarget(null)}
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [toast, setToast] = useState('')
@@ -93,9 +97,10 @@ export default function SocialApp() {
 
   function closePhoto(){setPhotoTarget(null);const url=new URL(window.location.href);url.searchParams.delete('foto');url.searchParams.delete('indice');window.history.replaceState(null,'',url)}
   function openPhoto(target){setPhotoTarget(target)}
-  function openProfile(id){closePhoto();setShowCreate(false);setShowMenu(false);setProfileTarget(id);setActiveView(id===backend.user?.id?'profile':'member-profile');const url=new URL(window.location.href);url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('perfil',id);url.searchParams.delete('ishort');window.history.replaceState(null,'',url);window.scrollTo({top:0})}
-  function openPost(id,commentId=null){setPostTarget({id,commentId});setActiveView('post');const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('post',id);url.searchParams.delete('ishort');window.history.replaceState(null,'',url);window.scrollTo({top:0})}
+  function openProfile(id){closeVideo();closePhoto();setShowCreate(false);setShowMenu(false);setProfileTarget(id);setActiveView(id===backend.user?.id?'profile':'member-profile');const url=new URL(window.location.href);url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('perfil',id);url.searchParams.delete('ishort');window.history.replaceState(null,'',url);window.scrollTo({top:0})}
+  function openPost(id,commentId=null){closeVideo();setPostTarget({id,commentId});setActiveView('post');const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('post',id);url.searchParams.delete('ishort');window.history.replaceState(null,'',url);window.scrollTo({top:0})}
   function navigate(view) {
+    closeVideo()
     closePhoto()
     const url=new URL(window.location.href);url.searchParams.delete('ishort');url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
     if (view === 'messages') setConversationTarget(null)
@@ -110,6 +115,7 @@ export default function SocialApp() {
   }
 
   function startConversation(person) {
+    closeVideo()
     closePhoto()
     const url=new URL(window.location.href);url.searchParams.delete('ishort');url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
     setConversationTarget(person); setActiveView('messages'); setShowMenu(false)
@@ -155,7 +161,7 @@ export default function SocialApp() {
   const hideRightRail = wideViews.has(viewId)
 
   return (
-    <ProfileNavigation.Provider value={openProfile}><PhotoNavigation.Provider value={openPhoto}><div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}${sidebarCollapsed?' app-shell--collapsed':' app-shell--expanded'}`}>
+    <VideoNavigation.Provider value={openVideo}><ProfileNavigation.Provider value={openProfile}><PhotoNavigation.Provider value={openPhoto}><div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}${sidebarCollapsed?' app-shell--collapsed':' app-shell--expanded'}`}>
       <Sidebar collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} activeView={viewId} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} unread={unread} notifications={notificationCount} />
       <header className="mobile-header"><button onClick={() => navigate('home')}><Brand /></button><div className="mobile-header__actions"><button onClick={() => navigate('people')} aria-label="Encontrar pessoas"><UserPlus size={20}/></button><button onClick={() => navigate('messages')} aria-label={`Mensagens${unread ? `, ${unread} não lidas` : ''}`} className="unread-icon"><MessageCircle size={20}/>{unread ? <b>{unread > 99 ? '99+' : unread}</b> : null}</button><button className="unread-icon" onClick={()=>navigate('notifications')} aria-label={`Notificações${notificationCount?`, ${notificationCount} não lidas`:''}`}><Bell size={20}/>{notificationCount?<b>{notificationCount>99?'99+':notificationCount}</b>:null}</button><button onClick={() => setShowMenu(true)} aria-label="Abrir menu"><Menu size={20}/></button><button className="mobile-profile-button" onClick={() => navigate('profile')} aria-label="Abrir meu perfil"><Avatar userId={backend.user.id} src={backend.user.avatar} alt="" size="xs" /></button></div></header>
       <div className="app-main">{independent && backend.user.authenticated ? <div className="signin-banner"><span>{backend.user.name}</span><button className="secondary-button" onClick={() => signOut().catch((error) => notify(error.message))}>Sair</button></div> : null}{view}</div>
@@ -165,7 +171,8 @@ export default function SocialApp() {
       {showCreate ? <QuickCreate user={backend.user} communities={backend.communities} pages={backend.pages} onUploadMedia={backend.uploadMedia} onClose={() => setShowCreate(false)} onPublish={backend.publishPost} onNavigate={navigate} onNotify={notify} /> : null}
       {backend.user.authenticated && !backend.user.onboardingComplete ? <Onboarding user={backend.user} onComplete={completeOnboarding} /> : null}
       {photoTarget?<PhotoViewer key={photoTarget.postId} target={photoTarget} user={backend.user} onClose={closePhoto} onNotify={notify}/>:null}
+      {videoTarget?<ShortsView key={videoTarget.postId+':'+videoTarget.index} target={videoTarget} onClose={closeVideo} user={backend.user} onNotify={notify} onChanged={backend.refresh}/>:null}
       <Toast message={toast} />
-    </div></PhotoNavigation.Provider></ProfileNavigation.Provider>
+    </div></PhotoNavigation.Provider></ProfileNavigation.Provider></VideoNavigation.Provider>
   )
 }

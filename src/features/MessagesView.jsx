@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, CheckCheck, Copy, MoreHorizontal, Reply, Search, Send, ShieldBan, Smile, UsersRound, X } from 'lucide-react'
 import { useOnline } from '../hooks/useActivity.js'
 import { ProfileName } from '../components/ProfileNavigation.jsx'
+import useChatViewport from '../hooks/useChatViewport.js'
+import { revealMessage,restoreChatScroll } from '../services/chatScroll.js'
+import './messages.css'
 import ViewHeader from '../components/ViewHeader.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Modal from '../components/Modal.jsx'
@@ -60,7 +63,9 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
   const active=useRef(null)
   const pendingSends=useRef(new Map())
   const messageRows=useRef([])
-  const end=useRef(null)
+  const root=useRef(null),textarea=useRef(null),scrollAnchor=useRef(null)
+  useChatViewport(root,!!(person||review),scrollArea,atBottom)
+  useLayoutEffect(()=>{const node=textarea.current;if(node){node.style.height='0px';node.style.height=`${Math.max(44,Math.min(120,node.scrollHeight))}px`}},[draft,person,editing])
   const editPrevious=useRef('')
   active.current=review?'__creator__':person?.id
   messageRows.current=messages
@@ -119,7 +124,7 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
     return()=>{current=false}
   },[session,person,review,status,sync])
 
-  useEffect(()=>{if(atBottom)end.current?.scrollIntoView({block:'nearest'})},[messages.length,atBottom])
+  useLayoutEffect(()=>{restoreChatScroll(scrollArea.current,scrollAnchor.current,atBottom);scrollAnchor.current=null},[messages,atBottom,draft])
   useEffect(()=>{
     const visible=()=>setReadTick(value=>value+1)
     window.addEventListener('focus',visible);document.addEventListener('visibilitychange',visible)
@@ -161,7 +166,7 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
       const rows=await session.decrypt(raw)
       const parents=await session.decrypt(await api.visible(rows.map(row=>row.reply_to).filter(Boolean)))
       const extra=review?[]:await api.reactions(rows.map(row=>row.id))
-      if(active.current===target){setAtBottom(false);setMessages(previous=>mergeMessages(previous,rows));setReferences(previous=>mergeMessages(previous,parents));setReactions(previous=>[...previous.filter(item=>!extra.some(next=>next.message_id===item.message_id&&next.user_id===item.user_id)),...extra]);setHasOlder(rows.length===100)}
+      if(active.current===target){if(scrollArea.current)scrollAnchor.current={top:scrollArea.current.scrollTop,height:scrollArea.current.scrollHeight};setAtBottom(false);setMessages(previous=>mergeMessages(previous,rows));setReferences(previous=>mergeMessages(previous,parents));setReactions(previous=>[...previous.filter(item=>!extra.some(next=>next.message_id===item.message_id&&next.user_id===item.user_id)),...extra]);setHasOlder(rows.length===100)}
     }catch(issue){setError(issue.message)}finally{setLoading(false)}
   }
   function cancelEdit(){setEditing(null);setDraft(editPrevious.current);setChoice(null)}
@@ -233,7 +238,7 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
   const currentReply=messages.find(row=>row.id===replyTo?.id)||references.find(row=>row.id===replyTo?.id)||replyTo
   const quote=row=>row.deleted_at?'Mensagem apagada':row.locked||row.invalid?'Mensagem indisponível':row.plaintext
   const composeMode=editing?(editing.encryption_version===1?(cryptoSession?'protected':'needs-setup'):'standard'):mode
-  return <main className="feature-view messages-view" data-has-drafts={draft.trim()||[...drafts.current.values()].some(value=>value.text?.trim())?'true':undefined}>
+  return <main ref={root} className={`feature-view messages-view${person||review?' is-chat-open':''}`} data-has-drafts={draft.trim()||[...drafts.current.values()].some(value=>value.text?.trim())?'true':undefined}>
     <ViewHeader title={review?'Revisão do criador':'Mensagens'} subtitle={status==='SUBSCRIBED'?'Conectado ao chat em tempo real.':['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)?'Conexão interrompida. Reconectando…':'Conectando ao chat…'}/>
     <div className="chat-privacy-notice"><details><summary>Privacidade das mensagens</summary><p>{notice}</p></details><button className="secondary-button" onClick={onConfigureSecurity}>Configurações das mensagens</button></div>
     {error?<p className="chat-error" role="alert">{error}</p>:null}{!privacyState?<button className="secondary-button" onClick={()=>setRetry(value=>value+1)}>Verificar preferências</button>:null}
@@ -256,20 +261,20 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
           const rowReactions=reactions.filter(item=>item.message_id===row.id)
           return <div key={row.id} id={`message-${row.id}`} className={`bubble-row bubble-row--${row.sender_id===user.id?'me':'them'}`}><div className={`message-bubble ${row.deleted_at?'is-deleted':''}`}>
             {review?<small>{name(row.sender_id)} → {name(row.recipient_id)}</small>:null}
-            {row.reply_to?<button className="message-quote" onClick={()=>document.getElementById(`message-${row.reply_to}`)?.scrollIntoView({block:'center',behavior:'smooth'})}><strong>{parent?name(parent.sender_id):'Resposta a uma mensagem'}</strong><span>{parent?quote(parent):'Mensagem anterior indisponível neste histórico.'}</span></button>:null}
+            {row.reply_to?<button className="message-quote" onClick={()=>revealMessage(scrollArea.current,document.getElementById(`message-${row.reply_to}`))}><strong>{parent?name(parent.sender_id):'Resposta a uma mensagem'}</strong><span>{parent?quote(parent):'Mensagem anterior indisponível neste histórico.'}</span></button>:null}
             {row.story_id?<span className="message-story-context">Resposta a um story{row.sender_id===user.id?' que você viu':' do seu perfil'}</span>:null}
             <p>{row.plaintext}</p>
             {!review?<button className="message-more" aria-label="Ações da mensagem" onClick={()=>{setChoice(row);setDialog('message')}}><MoreHorizontal size={18}/></button>:null}
             {rowReactions.length?<div className="message-reactions">{[...new Set(rowReactions.map(item=>item.emoji))].map(emoji=><button key={emoji} disabled={review||!allowed||actionBusy} aria-label={`Reação ${emoji}`} aria-pressed={rowReactions.some(item=>item.user_id===user.id&&item.emoji===emoji)} onClick={()=>react(row,emoji)}>{emoji} {rowReactions.filter(item=>item.emoji===emoji).length}</button>)}</div>:null}
             <small>{row.deleted_at?'':row.invalid?'Falha na verificação · ':row.locked?'Acesso não recuperado · ':row.encryption_version===1?'Proteção adicional · ':'Mensagem padrão · '}{new Date(row.created_at).toLocaleString('pt-BR')}{row.edited_at?' · editada':''}{!review&&!row.deleted_at&&row.sender_id===user.id?<span className="message-receipt">{messageWasRead(row,receipt)?<><CheckCheck size={13}/>Vista</>:'Enviada'}</span>:null}</small>
           </div></div>
-        })}<div ref={end}/>
+        })}
       </div>
       {!review?<div className="composer-chat-wrap">{ownBlock?<div className="chat-mode-notice"><p>Você bloqueou este contato {ownBlock.scope==='all'?'de tudo':'na conversa'}.</p><button className="secondary-button" disabled={actionBusy} onClick={()=>block(true)}>Desbloquear</button><button className="text-button" onClick={()=>showBlock()}>Alterar tipo de bloqueio</button></div>:!allowed&&!loading?<p className="empty-inline">Não é possível enviar mensagens para este contato.</p>:null}
         {allowed&&!isUnknown?<>{editing?<div className="chat-composer-context"><span>Editando sua mensagem</span><button className="icon-button" aria-label="Cancelar edição" onClick={cancelEdit}><X size={17}/></button></div>:currentReply?<div className="chat-composer-context"><span>Respondendo a {name(currentReply.sender_id)}<small>{quote(currentReply)}</small></span><button className="icon-button" aria-label="Cancelar resposta" onClick={()=>setReplyTo(null)}><X size={17}/></button></div>:null}
         {composeMode==='needs-setup'?<div className="chat-mode-notice"><p>A proteção adicional escolhida não está disponível nesta conversa ou neste aparelho.</p><button className="secondary-button" onClick={onConfigureSecurity}>Configurar proteção</button>{!editing?<button className="secondary-button" onClick={()=>setStandardAccepted(true)}>Usar conversa padrão</button>:null}</div>:<p className="chat-mode-label">{composeMode==='protected'?'Proteção adicional ativa':composeMode==='loading'?'Conferindo preferências…':'Conversa padrão'}</p>}
         {showEmoji?<div className="emoji-picker">{['😀','❤️','👍','🎉','😂','🙏','😊','🔥','👋','👏','💬','✨'].map(emoji=><button key={emoji} type="button" onClick={()=>{setDraft(text=>(text+emoji).slice(0,4000));setShowEmoji(false)}}>{emoji}</button>)}</div>:null}
-        <form className="message-composer" onSubmit={send}><button className="icon-button" type="button" aria-label="Adicionar emoji" aria-expanded={showEmoji} onClick={()=>setShowEmoji(value=>!value)}><Smile size={20}/></button><textarea id="chat-draft" aria-label={editing?'Editar mensagem':'Mensagem'} placeholder={`Mensagem para ${person.name}`} value={draft} maxLength={4000} rows={2} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&(!window.matchMedia('(pointer: coarse)').matches||event.ctrlKey||event.metaKey)){event.preventDefault();void send(event)}}} disabled={sending}/><button className="send-button" disabled={sending||!draft.trim()||!['standard','protected'].includes(composeMode)} aria-label={editing?'Salvar mensagem editada':'Enviar mensagem'}><Send size={18}/></button></form></>:null}
+        <form className="message-composer" onSubmit={send}><button className="icon-button" type="button" aria-label="Adicionar emoji" aria-expanded={showEmoji} onClick={()=>setShowEmoji(value=>!value)}><Smile size={20}/></button><textarea ref={textarea} id="chat-draft" aria-label={editing?'Editar mensagem':'Mensagem'} placeholder={`Mensagem para ${person.name}`} value={draft} maxLength={4000} rows={1} onChange={event=>setDraft(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing&&(!window.matchMedia('(pointer: coarse)').matches||event.ctrlKey||event.metaKey)){event.preventDefault();void send(event)}}} disabled={sending}/><button className="send-button" disabled={sending||!draft.trim()||!['standard','protected'].includes(composeMode)} aria-label={editing?'Salvar mensagem editada':'Enviar mensagem'}><Send size={18}/></button></form></>:null}
       </div>:<p className="empty-inline">As conversas são apresentadas para revisão. Para responder, abra a pessoa na lista.</p>}
     </>:<div className="profile-empty"><h2>Escolha uma conversa.</h2><p>Abra Pessoas para começar uma nova conversa. Mensagens de quem não tem conexão com você ficam em Desconhecidos.</p></div>}</section></div>
     {dialog==='conversation'?<Modal title="Opções da conversa" onClose={()=>setDialog('')}><div className="chat-action-sheet">{error?<p className="chat-error" role="alert">{error}</p>:null}{isUnknown?<button onClick={()=>conversationAction('accept')}>Mover para Conversas</button>:null}<button onClick={()=>setDialog('clear')}>Apagar conversa só para mim</button><button onClick={()=>showBlock()}><ShieldBan size={18}/>Bloquear contato</button>{ownBlock?<button disabled={actionBusy} onClick={()=>block(true)}>Desbloquear contato</button>:null}</div></Modal>:null}

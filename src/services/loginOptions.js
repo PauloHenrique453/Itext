@@ -20,6 +20,7 @@ export function loginOptions(provider, origin, inviteSearch = '') {
     const value = invite.get(field)
     if (value) callback.searchParams.set(field, value)
   }
+  if(callback.searchParams.has('ishort')&&/^[0-5]$/.test(invite.get('video')||''))callback.searchParams.set('video',invite.get('video'))
   const options = { redirectTo: callback.href }
   if (provider === 'google') {
     options.scopes = 'openid email profile'

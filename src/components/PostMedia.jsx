@@ -4,6 +4,7 @@ import { extractLinks } from '../services/content.js'
 import { videoEmbed } from '../services/mediaFormats.js'
 import { PhotoNavigation } from './ProfileNavigation.jsx'
 import AudioPlayer from './AudioPlayer.jsx'
+import FeedVideo from './FeedVideo.jsx'
 export default function PostMedia({media=[],image,postId}) {
  const openPhoto=useContext(PhotoNavigation)
  const items=image?[{url:image,type:'image'},...media]:media
@@ -15,7 +16,7 @@ export default function PostMedia({media=[],image,postId}) {
   if(!item.url)return <p key={index} className="form-note">Mídia indisponível.</p>
   if(item.type==='file')return <a className="post-file" key={item.storagePath||index} href={item.url} target="_blank" rel="noopener noreferrer" download={item.name||true}><FileText size={24}/><span><strong>{item.name||'Arquivo anexado'}</strong><small>{item.size?`${(item.size/1000000).toFixed(1)} MB · `:''}Baixar arquivo</small></span><Download size={18}/></a>
   if(item.type==='audio')return <AudioPlayer key={item.url} src={item.url} title={item.name||'Áudio publicado'}/>
-  if(item.type==='video')return <video key={item.url} className="post-card__media" src={item.url} controls playsInline preload="metadata"/>
+  if(item.type==='video')return <FeedVideo key={item.url} item={item} postId={postId} index={index-(image?1:0)}/>
   const photo=<img className="post-card__media" src={item.url} alt={item.name||'Foto publicada no Itext'} loading="lazy"/>
   return postId&&openPhoto?<button type="button" className="post-photo-open" key={item.url} onClick={()=>openPhoto({postId,index:selected})} aria-label="Abrir foto em tela cheia">{photo}</button>:<span key={item.url}>{photo}</span>
  })}</div>

@@ -1593,3 +1593,14 @@ h1, h2, h3, .brand__name { font-family: Manrope, Inter, sans-serif; }
  .story-stage { min-height:160px; }
  .modal--story .story-footer { padding-block:7px; }
 }
+
+/* Media controls remain reachable on narrow touch screens. */
+.feed-video { position:relative; width:100%; background:#000; border-radius:14px; overflow:hidden; }
+.feed-video > video { display:block; width:100%; max-height:min(650px,75svh); object-fit:contain; margin:0; border-radius:0; }
+.feed-video-open { position:absolute; inset:0; border:0; width:100%; background:transparent; color:#fff; padding:14px; display:flex; align-items:flex-start; justify-content:flex-end; }
+.feed-video-open > span { display:flex; align-items:center; gap:6px; font-size:11px; background:#08101dbb; border:1px solid #ffffff40; border-radius:20px; padding:8px 12px; }
+.feed-video-controls { position:absolute; bottom:10px; left:10px; right:10px; display:flex; justify-content:space-between; pointer-events:none; }
+.feed-video-controls > button { pointer-events:auto; min-height:44px; min-width:44px; display:grid; place-items:center; border:1px solid #ffffff50; border-radius:50%; color:white; background:#08101dbb; }
+body.has-short-viewer { overflow:hidden; }
+@media(max-width:420px) { .mobile-header { padding-inline:8px; }.mobile-header__actions { gap:2px; }.mobile-header__actions > button { min-width:36px; }.mobile-header .brand { gap:5px; }.mobile-header .brand__name { font-size:20px; }.form-actions { flex-wrap:wrap; } }
+@media(min-width:2000px) { .app-shell { width:min(94%,2160px); }.post-card__text { font-size:17px; }.view-header h1 { font-size:30px; } }

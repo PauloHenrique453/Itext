@@ -1,0 +1,23 @@
+Itext video editor — third-party software
+
+The editor uses the unmodified single-thread @ffmpeg/core 0.12.10
+(GPL-2.0-or-later) and @ffmpeg/ffmpeg 0.12.15 (MIT), authored by
+Jerome Wu and the ffmpeg.wasm contributors. The core includes FFmpeg,
+x264 and other libraries; see their notices and build scripts upstream.
+These programs are distributed WITHOUT ANY WARRANTY.
+
+License texts, available on this same site:
+/licenses/ffmpeg-GPL-2.0.txt
+/licenses/ffmpeg-wrapper-MIT.txt
+
+Upstream source and build scripts for these versions:
+https://github.com/ffmpegwasm/ffmpeg.wasm/tree/f876f907c7e9b9bf51d4ed0b913a855a63ae63fc
+https://github.com/ffmpegwasm/ffmpeg.wasm/archive/f876f907c7e9b9bf51d4ed0b913a855a63ae63fc.tar.gz
+The Dockerfile and build scripts identify the corresponding upstream
+library revisions and compiler flags. The core binaries have not been
+modified by Itext. npm package versions and integrity hashes are fixed
+in the public Itext package-lock.json.
+
+Itext integration source, encoder arguments, dependency lockfile and
+asset preparation script:
+https://github.com/PauloHenrique453/Itext
