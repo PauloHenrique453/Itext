@@ -1604,3 +1604,4 @@ h1, h2, h3, .brand__name { font-family: Manrope, Inter, sans-serif; }
 body.has-short-viewer { overflow:hidden; }
 @media(max-width:420px) { .mobile-header { padding-inline:8px; }.mobile-header__actions { gap:2px; }.mobile-header__actions > button { min-width:36px; }.mobile-header .brand { gap:5px; }.mobile-header .brand__name { font-size:20px; }.form-actions { flex-wrap:wrap; } }
 @media(min-width:2000px) { .app-shell { width:min(94%,2160px); }.post-card__text { font-size:17px; }.view-header h1 { font-size:30px; } }
+.composer--modern .content-modes { flex-wrap:wrap; }

@@ -5,7 +5,7 @@ export function attachmentInfo(file) {
  const type=['image','video','audio'].includes(kind)?kind:'file'
  if(type==='file'&&!fileExtensions.has(file.name?.split('.').pop()?.toLowerCase()))throw new Error('Escolha uma mídia, PDF, documento, planilha, apresentação, texto ou ZIP.')
  const limit={image:8000000,video:50000000,audio:18000000,file:15000000}[type]
- if(file.size>limit)throw new Error(`O limite deste arquivo é ${Math.floor(limit/1000000)} MB.${type==='video'?' Para vídeos maiores, publique um link do YouTube, TikTok ou Instagram.':''}`)
+ if(file.size>limit)throw new Error(`O limite deste arquivo é ${Math.floor(limit/1000000)} MB.${type==='video'?' Para vídeos maiores, use Cortar vídeo no Início ou o editor do Ishort, ou publique um link do YouTube, TikTok ou Instagram.':''}`)
  return {type,limit}
 }
 export function safeLink(value) {

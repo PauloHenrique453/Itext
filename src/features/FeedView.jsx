@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2, Code2, Heart, Image as ImageIcon, MessageCircle,
-  FileText, Link, Mic, Play, Send, Share2, Sparkles, Video, X,
+  FileText, Link, Mic, Play, Scissors, Send, Share2, Sparkles, Video, X,
 } from 'lucide-react'
 import Avatar from '../components/Avatar.jsx'
 import Modal from '../components/Modal.jsx'
@@ -12,6 +12,8 @@ import { ProfileName } from '../components/ProfileNavigation.jsx'
 import { attachmentAccept,safeLink } from '../services/content.js'
 import usePostLike from '../hooks/usePostLike.js'
 import CommentsDialog from './CommentsDialog.jsx'
+import ShortComposer from './ShortComposer.jsx'
+import { addComposerFiles } from '../services/composerAttachments.js'
 
 const starterCode = { html: '', css: '', js: '' }
 
@@ -26,7 +28,8 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
   const [link,setLink]=useState('')
   const [showLink,setShowLink]=useState(false)
   const [accept,setAccept]=useState(attachmentAccept)
-  const fileInput = useRef(null)
+  const fileInput = useRef(null),cutNext=useRef(false)
+  const [videoEdit,setVideoEdit]=useState(null)
   const hasCode = Object.values(code).some((value) => value.trim())
   const detectsCode = useMemo(() => /codigo|código|react|css|html|javascript|programa/i.test(text), [text])
   const destinations = useMemo(() => [
@@ -35,7 +38,7 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
     ...pages.filter((page) => page.isOwner).map((page) => ({ value: `page:${page.id}`, label: `Página: ${page.name}` })),
   ], [communities, pages])
 
-  function chooseFiles(types){setAccept(types);if(fileInput.current){fileInput.current.accept=types;fileInput.current.click()}}
+  function chooseFiles(types,cut=false){setAccept(types);cutNext.current=cut;if(fileInput.current){fileInput.current.accept=types;fileInput.current.multiple=types!=='video/*';fileInput.current.click()}}
   function addLink(){const url=safeLink(link);if(!url){setUploadError('Use um link completo começando com https:// ou http://.');return}if((text+'\n'+url).length>10000){setUploadError('O texto ultrapassa 10.000 caracteres.');return}setText(value=>value?value+'\n'+url:url);setLink('');setShowLink(false);setUploadError('')}
   async function addFiles(event) {
     const files = [...(event.target.files || [])].slice(0, Math.max(0, 6 - media.length))
@@ -43,12 +46,12 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
     setUploading(true)
     setUploadError('')
     try {
-      for(const file of files){const uploaded=await onUploadMedia(file);setMedia(current=>[...current,uploaded.media])}
+      await addComposerFiles(files,{forceVideoEdit:cutNext.current,edit:(file,multiple)=>{setVideoEdit(file);if(multiple)setUploadError('Edite este vídeo primeiro; depois selecione os outros arquivos para anexar.')},upload:onUploadMedia,onUploaded:attachment=>setMedia(current=>[...current,attachment])})
     } catch (error) {
       setUploadError(error.message || 'Não foi possível enviar a mídia.')
     } finally {
       setUploading(false)
-      event.target.value = ''
+      event.target.value = '';cutNext.current=false
     }
   }
 
@@ -88,12 +91,13 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
     {media.length?<div className="composer-attachments">{media.map(item=><div key={item.storagePath} className="composer-attachment">{item.type==='image'?<img src={item.url} alt={item.name}/>:item.type==='video'?<Video size={26}/>:item.type==='audio'?<Mic size={26}/>:<FileText size={26}/>}<span>{item.name}<small>{(item.size/1000000).toFixed(1)} MB</small></span><button disabled={uploading} className="icon-button" aria-label="Remover anexo" onClick={()=>setMedia(current=>current.filter(row=>row.storagePath!==item.storagePath))}><X size={16}/></button></div>)}</div>:null}
     {showLink?<div className="composer-link-input"><input aria-label="Link da publicação" type="url" placeholder="https://…" value={link} onChange={event=>setLink(event.target.value)}/><button className="secondary-button" onClick={addLink}>Adicionar link</button><button className="icon-button" aria-label="Cancelar link" onClick={()=>setShowLink(false)}><X size={16}/></button></div>:null}
     <PostLinks text={text}/>
-    {uploadError ? <p className="composer-upload-error">{uploadError}</p> : null}
+    {uploadError ? <p role="alert" className="composer-upload-error">{uploadError}</p> : null}
     <div className="composer__toolbar">
       <div className="content-modes">
         <button className={mode === 'post' ? 'is-active' : ''} onClick={() => setMode('post')}><Send size={16} /> Post</button>
         <button className={mode === 'code' ? 'is-active' : ''} onClick={() => setMode('code')}><Code2 size={17} /> Jogo/código</button>
         <button disabled={uploading||media.length>=6} onClick={()=>chooseFiles('video/*')}><Video size={17}/>Vídeo</button>
+        <button disabled={uploading||media.length>=6} onClick={()=>chooseFiles('video/*',true)}><Scissors size={17}/>Cortar vídeo</button>
       </div>
       <div className="composer__extras">
         <input ref={fileInput} className="sr-only" type="file" accept={accept} multiple onChange={addFiles} />
@@ -105,7 +109,7 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
         <button className="primary-button" onClick={publish} disabled={!user.authenticated || isPublishing || uploading || (!text.trim() && !media.length && (mode !== 'code' || !hasCode))}>{uploading ? 'Enviando mídia…' : isPublishing ? 'Publicando…' : 'Publicar'}</button>
       </div>
     </div>
-  <p className="composer-count">{text.length.toLocaleString('pt-BR')} / 10.000 · {media.length} / 6 anexos · Vídeos até 50 MB, sem limite de duração. Maiores: use um link de vídeo.</p></section>
+  <p className="composer-count">{text.length.toLocaleString('pt-BR')} / 10.000 · {media.length} / 6 anexos · Vídeos até 50 MB, sem limite de duração. Use Cortar vídeo para selecionar um trecho ou reduzir um arquivo maior.</p>{videoEdit?<ShortComposer initialFile={videoEdit} onClose={()=>setVideoEdit(null)} onAttach={attachments=>setMedia(current=>[...current,...attachments].slice(0,6))} maxAttachments={6-media.length} onUploadMedia={onUploadMedia}/>:null}</section>
 }
 
 function CodePreview({ code, onRun }) {
