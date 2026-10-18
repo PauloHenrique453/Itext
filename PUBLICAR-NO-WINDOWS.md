@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b029a1f58748732e4c75dff65f365b6076a615de.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/34550c03f06311bec1e37d8a09e7d3c461c17720.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -89,7 +89,7 @@ No PowerShell, entre na mesma pasta onde publicou o Itext:
 Set-Location -LiteralPath 'C:\Users\paulo\OneDrive\Documentos\Itext-7c599abb\Itext-45ef4d1f0b6baef675f560e801851064122d37d3'
 ```
 
-Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cópia dos arquivos anteriores e atualiza a interface, o título da aba, o favicon, os scripts de publicação e a configuração de cache. Preserva `.env.independent.local`, `.firebaserc`, dependências e login do Firebase. Não precisa executar `npm ci` novamente: as dependências desta atualização são as mesmas.
+Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cópia dos arquivos anteriores e atualiza a interface, o título da aba, o favicon, os scripts de publicação e a configuração de cache. Preserva `.env.independent.local`, `.firebaserc` e o login do Firebase. Esta revisão adiciona o editor de vídeo: o bloco copia também package.json/package-lock.json e executa `npm.cmd ci` antes de publicar. Não use um bloco antigo que pule essa instalação.
 
 ```powershell
 & {
@@ -103,12 +103,12 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b029a1f58748732e4c75dff65f365b6076a615de.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/34550c03f06311bec1e37d8a09e7d3c461c17720.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
     $itextPastas = @('src', 'scripts', 'tests', 'supabase', 'public')
-    $itextArquivos = @('firebase.json', 'index.html', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md')
+    $itextArquivos = @('firebase.json', 'index.html', 'package.json', 'package-lock.json', '.gitignore', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md')
     foreach ($itextItem in ($itextPastas + $itextArquivos)) {
         if (-not (Test-Path -LiteralPath (Join-Path $itextFonte[0].FullName $itextItem))) { throw ('Arquivo ausente na atualizacao: ' + $itextItem) }
     }
@@ -125,6 +125,8 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     foreach ($itextItem in $itextArquivos) {
         Copy-Item -LiteralPath (Join-Path $itextFonte[0].FullName $itextItem) -Destination $itextItem -Force
     }
+    npm.cmd ci
+    if ($LASTEXITCODE -ne 0) { throw 'A instalacao das dependencias parou. Envie somente o erro, sem tokens.' }
     npm.cmd run deploy:firebase
     if ($LASTEXITCODE -ne 0) { throw 'A atualizacao parou. Envie somente o erro mostrado acima, sem tokens.' }
     Write-Host 'Atualizacao publicada. Abra https://itext-1b9da.web.app'
@@ -248,12 +250,12 @@ O bloco **Atualizar o Itext já publicado** está apontado para a revisão que c
 
 O story tem um cartão vertical, foto circular e nome no topo, indicadores clicáveis, mídia em destaque, navegação discreta e ações na parte inferior. A criação ganhou opções com ícones e prévia. O celular usa a tela disponível; no computador o story fica centralizado. Nome e imagem continuam abrindo o perfil dentro da visualização; o círculo da lista abre o story.
 
-Build, verificações estáticas, SSR e testes focados passaram. Não foi possível testar o visual em Browser nesta sessão. Após **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5 e confira se o avatar continua circular, a foto/vídeo inteira aparece, o rodapé fica acessível com o teclado aberto e os segmentos/setas trocam o story. Não é preciso SQL ou instalar dependências outra vez.
+Build, verificações estáticas, SSR e testes focados passaram. Não foi possível testar o visual em Browser nesta sessão. Após **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5 e confira se o avatar continua circular, a foto/vídeo inteira aparece, o rodapé fica acessível com o teclado aberto e os segmentos/setas trocam o story. Não é preciso SQL. Use sempre o bloco atual, que inclui a instalação das dependências necessárias.
 
 
 ## Ishort: publicar e assistir vídeos de até 10 minutos
 
-O bloco **Atualizar o Itext já publicado** acima agora baixa o novo Ishort e todas as correções anteriores dos stories. Use o bloco deste guia atualizado: comandos antigos podem baixar versões anteriores. Execute na pasta que contém `.firebaserc` do projeto **itext-1b9da**. Não precisa executar npm ci, trocar chaves ou aplicar SQL.
+O bloco **Atualizar o Itext já publicado** acima agora baixa o novo Ishort e todas as correções anteriores dos stories. Use o bloco deste guia atualizado: comandos antigos podem baixar versões anteriores. Execute na pasta que contém `.firebaserc` do projeto **itext-1b9da**. O bloco atual instala as dependências automaticamente. Não precisa trocar chaves ou aplicar SQL.
 
 O Ishort tem:
 
@@ -264,7 +266,7 @@ O Ishort tem:
 - Curtidas, comentários/respostas, compartilhar, seguir e abrir o perfil, usando a mesma publicação que aparece no perfil.
 - Pausa ao sair da tela, ocultar a aba ou abrir uma janela de comentários/publicação.
 
-A aba começa vazia até existir publicação feita por **Publicar vídeo**, sem vídeos fictícios. Vídeos comuns já existentes no feed não foram reclassificados como Ishort. Vídeos mais longos continuam no feed normal. O limite de 50 MB vem do plano gratuito; não houve ativação de cobrança, compressão ou transcodificação.
+A aba começa vazia até existir publicação feita por **Publicar vídeo**, sem vídeos fictícios. Vídeos comuns já existentes no feed não foram reclassificados como Ishort. Vídeos mais longos continuam no feed normal. O limite de 50 MB vem do plano gratuito. O novo editor descrito abaixo recorta e reduz arquivos no aparelho; não foi ativado faturamento.
 
 Depois de **Deploy complete!**, abra https://itext-1b9da.web.app e aceite Atualizar agora ou use Ctrl+F5. Entre no Ishort pelo menu e faça esta conferência:
 
@@ -275,3 +277,18 @@ Depois de **Deploy complete!**, abra https://itext-1b9da.web.app e aceite Atuali
 5. Confira a aba Seguindo, celular vertical/horizontal, tablet e computador. O botão Atualizar vídeos busca novas publicações.
 
 Passaram **62 testes**, build de produção, verificações estáticas e SSR dos controles. Browser não tem ferramenta de execução disponível nesta sessão; a imagem apresentada foi referência de design e não captura do site em execução. Reprodução, uploads, rolagem e tamanho visual nos aparelhos ainda precisam desta conferência após publicar. O README detalha as verificações e os limites.
+
+
+## Recortar, publicar em partes, vídeos do feed e chat confortável
+
+Esta revisão mantém os recursos anteriores. O bloco **Atualizar o Itext já publicado** agora instala as novas dependências com `npm.cmd ci` e publica também o editor. Não há SQL novo nem serviço pago. A hospedagem recebe cerca de 32 MB extras do encoder; esse arquivo é baixado pelo usuário apenas quando um corte ou redução é necessário, usando a franquia gratuita normal de transferência do Firebase.
+
+- Em **Ishort → Publicar vídeo**, escolha um original de até 200 MB. Arraste início/fim, confira **Ver seleção** e publique o trecho. **Dividir em partes** oferece 1, 3, 5 ou 10 minutos por parte, com seleção das partes desejadas. Cada publicação fica limitada a dez minutos/50 MB.
+- O editor cria MP4 reais com H.264/AAC no aparelho. Pode reduzir imagem para até 1280 pixels e 30 fps; qualidade e tempo variam com o aparelho. Não envia o original completo quando você selecionou somente um trecho. Um arquivo completo já dentro dos limites pode ser enviado sem conversão.
+- As partes são processadas uma a uma. Se houver erro, mantenha a janela aberta e use **Continuar partes pendentes**. As partes confirmadas não são publicadas novamente. Fechar/recarregar encerra essa retomada; publicações concluídas permanecem. Arquivos enviados sem publicação podem ocupar armazenamento e precisam de manutenção.
+- Vídeos de arquivo no feed começam sem som quando visíveis; somente um toca por vez. Há pausa/som e abertura em tela cheia no Ishort. X/Escape retorna à página preservada. Vídeos longos comuns também abrem no player, respeitando a permissão do post, sem entrar automaticamente na descoberta de vídeos curtos. Links de plataformas externas continuam usando seus players oficiais.
+- Mensagens usa histórico com rolagem própria. No celular, abrir uma conversa ocupa a área disponível e ajusta a altura ao teclado; Voltar retorna à lista. O campo cresce até um limite, com botões de toque de 44 px. A leitura de mensagens antigas mantém a posição no histórico.
+
+Depois de **Deploy complete!**, aceite Atualizar agora ou recarregue com Ctrl+F5. Confira em celular vertical/horizontal, tablet e computador: teclado aberto/fechado no chat, responder uma mensagem antiga, voltar à lista, rolar dois vídeos do feed e abrir/fechar o Ishort. Publique um corte e duas partes reais, confira início/fim e teste uma interrupção retomando na mesma janela.
+
+A validação inclui 69 testes automatizados, build, renderização SSR e cortes com o encoder WebAssembly real, incluindo o limite de dez minutos. Não foi possível executar navegador nesta sessão: aparência, teclado, arraste, permissões de autoplay e uploads ainda precisam dessa conferência nos aparelhos. A publicação no Firebase é feita no seu PowerShell autenticado, pelo bloco completo acima.
