@@ -3,7 +3,7 @@ import { X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 const dialogs=[]
-export default function Modal({title,children,onClose,size='md'}) {
+export default function Modal({title,children,onClose,size='md',headerContent=null}) {
   const root=useRef(null)
   const close=useRef(onClose)
   close.current=onClose
@@ -32,6 +32,6 @@ export default function Modal({title,children,onClose,size='md'}) {
       if(previous?.isConnected)previous.focus()
     }
   },[])
-  const content = <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&dialogs.at(-1)===root.current)onClose()}}><section ref={root} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}><header><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20}/></button></header>{children}</section></div>
+  const content = <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&dialogs.at(-1)===root.current)onClose()}}><section ref={root} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}>{headerContent||<header><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20}/></button></header>}{children}</section></div>
   return typeof document==='undefined'?content:createPortal(content,document.body)
 }

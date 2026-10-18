@@ -168,3 +168,13 @@ Compartilhar usa a folha nativa do aparelho ou copia um link `?story=UUID`, sem 
 O botão Recolher menu lateral fica ao lado do logotipo; reduz a coluna esquerda a 84 px, mantém os ícones, os contadores, Criar e o próprio perfil. O botão Expandir restaura os nomes. A preferência é salva neste navegador em `itext:sidebar:v1`; o menu continua funcionando se o armazenamento local estiver indisponível. No celular continua disponível o menu próprio do aparelho. Os controles têm nomes acessíveis, dicas e indicação do estado expandido.
 
 Validação desta revisão: **56 testes aprovados**, compilação de produção, verificações estáticas e SSR dos dois estados do menu, controles do rodapé, clique do círculo sem navegação de perfil e proteção do link compartilhado. Browser continua sem ferramenta de execução disponível nesta sessão; cliques completos na aplicação, tamanho/rolagem visual em aparelhos e compartilhamento nativo precisam ser conferidos após o deploy do Firebase no Windows.
+
+## Revisão visual dos stories e correção do avatar
+
+O avatar do cabeçalho estava atingido pela regra `.story-topline > span { flex:1 }`: como Avatar renderiza um span, a foto podia se esticar. Essa regra foi removida do avatar; o novo cabeçalho usa um contêiner próprio para o autor e mantém largura/altura de 38 px, proporção 1:1, recorte circular e object-fit:cover.
+
+A visualização usa um palco vertical escuro, maior destaque para a mídia, nome/data reais, segmentos clicáveis dos stories daquela pessoa, setas discretas, fechar no canto e rodapé com resposta privada, coração/contador e compartilhar. Os segmentos indicam a posição e permitem abrir stories reais; não simulam um temporizador ou visualizações. O conteúdo conserva suas permissões, expiração e proteção das respostas. No celular a tela ocupa a altura disponível; no computador aparece um cartão central. Vídeos/fotos continuam com object-fit:contain para conservar a imagem inteira. Legenda longa e texto têm rolagem sem empurrar o rodapé para fora.
+
+O editor de criação recebeu opções de formato com ícones, paleta, fonte e painel de prévia. A janela compartilhada ganhou cabeçalho opcional; comentários e outras janelas conservam o cabeçalho e botão Fechar usuais. Não houve mudança de dependências, banco ou permissões.
+
+Validação: build de produção, verificações estáticas de JS/JSX, SSR do cabeçalho/autor, seleção de segmentos, fechar/apagar, prévia do editor, mídia indisponível, rodapé, galeria e comentários. Passaram também os testes focados de stories/RLS, conteúdo e links/login. Não há Browser executável nesta sessão; dimensões, capturas e interação completa em celular/computador ainda precisam ser conferidas após publicar. Compilação e SSR não são prova visual.
