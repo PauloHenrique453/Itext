@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase recebeu também a atualização de seguidores e leitura de mensagens. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
+O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de seguidores, stories, desconhecidos, bloqueios e ações de conteúdo. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
 ## 1. Conferir o Node.js
 
@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b661b9334eef996a8517e976620106ce3c7e020e.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/1dbc4f1454cdd98f38a3e35d61599f767cb47298.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b661b9334eef996a8517e976620106ce3c7e020e.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/1dbc4f1454cdd98f38a3e35d61599f767cb47298.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -137,7 +137,7 @@ A barra lateral do computador agora permite rolar até o perfil em telas baixas,
 
 O bloco não executa migrações nem altera registros ou códigos de recuperação. A migração de seguidores e leitura já foi aplicada neste projeto Supabase. A conta do criador e sua chave continuam cadastradas; não precisa criá-las novamente. Mensagens padrão funcionam sem configurar código. Somente se escolher a proteção adicional em Configurações será necessário cadastrar ou recuperar uma chave.
 
-Foram aprovados 32 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
+Foram aprovados 40 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
 
 
 ## Configurar identificação por e-mail para recuperar PIN
@@ -160,10 +160,24 @@ Redefinir o PIN remove o acesso de mensagens lembrado neste aparelho. O código 
 Em **Configurações → Privacidade das curtidas**, cada usuário pode mostrar ou ocultar suas curtidas no perfil. Por padrão elas são privadas. A atualização do banco correspondente já foi aplicada no projeto atual; o bloco de publicação não reaplica migrações.
 
 
-A revisão opcional passou em 32 testes e no build. A renderização do código confirma que o formulário só aparece com a opção ativada e que as conversas comuns não pedem senha/código. Ainda falta conferir os dois modos entre contas reais após publicar. A migração `20261018040725_optional_chat_protection.sql` já foi aplicada neste projeto Supabase, sem apagar ou converter mensagens e chaves. O bloco acima não reaplica migrações.
+As verificações desta versão passaram em 40 testes e no build. A renderização do código confirma que o formulário só aparece com a opção ativada e que as conversas comuns não pedem senha/código. Ainda falta conferir os dois modos entre contas reais após publicar. A migração `20261018040725_optional_chat_protection.sql` já foi aplicada neste projeto Supabase, sem apagar ou converter mensagens e chaves. O bloco acima não reaplica migrações.
 
 
 Depois de **Deploy complete!**, abra o site e recarregue. Você pode usar **Mensagens** diretamente. Para conferir a escolha opcional, abra Configurações: deverá aparecer somente a opção de proteção adicional desativada, sem o formulário de código. Uma chave antiga só é necessária para ler mensagens antigas que já tenham sido criptografadas ou para escolher o modo adicional. O PIN de bloqueio do aparelho permanece separado e opcional.
 
 
 O título da aba agora é apenas **Itext**, e o favicon usa o símbolo azul da marca. Esta revisão foi compilada; o HTML gerado referencia o favicon, cujo SVG foi validado e incluído no build. O bloco de atualização acima copia também `index.html` e `public/`, necessários para essas alterações. Depois de publicar, recarregue a página; se o ícone antigo persistir, feche e reabra a aba.
+
+
+## Novidades desta atualização
+
+A migração `20261018044842_stories_requests_and_message_actions.sql` já foi aplicada ao Supabase deste projeto. O bloco **Atualizar o Itext já publicado** acima baixa a interface correspondente. Execute o bloco completo; publicar apenas a pasta antiga não instala os novos recursos.
+
+- No início e no perfil, **Seu story** publica uma foto ou um vídeo por 24 horas. Curtidas são salvas e comentários chegam como mensagens ao dono.
+- Mensagens tem **Conversas**, **Desconhecidos** com contador e **Bloqueados**. Você pode aceitar, apagar só para si, bloquear, bloquear e apagar ou desbloquear.
+- **Apenas conversas** bloqueia o chat. **De tudo** também oculta posts, vídeos e stories e impede curtidas/comentários entre as contas. O perfil continua pesquisável, com foto, capa e fotos publicadas na galeria, conforme solicitado.
+- Posts próprios têm **Editar** e **Apagar**, também no perfil. O menu de três pontos de cada mensagem permite responder àquela mensagem, reagir, copiar, editar o próprio envio ou escolher entre apagar só para si e apagar para todos.
+
+O modo padrão continua sem código; a proteção adicional mantém as chaves atuais e só é usada por escolha do usuário. Os testes automatizados verificam as regras do banco e da criptografia; a conferência em aparelhos e a troca entre duas contas reais devem ser feitas depois do deploy. O lint geral não está configurado neste projeto e não foi considerado aprovado.
+
+Stories expiram para visualização após 24 horas. A limpeza física dos arquivos não é automática e exige manutenção da franquia gratuita. O bloqueio vale para as contas envolvidas; arquivos já baixados e URLs assinadas ainda válidas não são revogados imediatamente. O README detalha esses limites. Nenhum serviço pago foi ativado.
