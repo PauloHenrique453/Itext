@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/dc6327f177827b3b0d085814d136b76c1d9a7caf.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/c693109ad27ff525ed718580aa2c365340c202f2.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/dc6327f177827b3b0d085814d136b76c1d9a7caf.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/c693109ad27ff525ed718580aa2c365340c202f2.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -137,4 +137,24 @@ A barra lateral do computador agora permite rolar até o perfil em telas baixas,
 
 O bloco não executa migrações nem altera registros ou códigos de recuperação. A migração de seguidores e leitura já foi aplicada neste projeto Supabase. A conta do criador e sua chave continuam cadastradas; não precisa criá-las novamente. Para abrir mensagens, use seu código guardado no local seguro.
 
-Foram aprovados 22 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
+Foram aprovados 29 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
+
+
+## Configurar identificação por e-mail para recuperar PIN
+
+Esta versão inclui em **Configurações → Segurança deste aparelho** um PIN ou senha opcional. Nas mensagens, **Lembrar neste aparelho** evita repetir o código após recarregar, enquanto você permanece na conta. O bloqueio e a chave lembrada pertencem a este navegador/aparelho. A senha local não substitui o login Google.
+
+O botão **Esqueci meu PIN: enviar solicitação de identificação** está implementado, mas o envio precisa da configuração de e-mail no Supabase:
+
+1. Abra [Supabase → Authentication → Email Templates](https://supabase.com/dashboard/project/qnjanobhsnvrxoraifcc/auth/templates) e escolha **Magic Link**.
+2. Use o conteúdo de [supabase/email-identification.html](supabase/email-identification.html) como modelo do e-mail. O endereço do botão inclui `token_hash` e `type=email`, que o Itext valida com o Supabase antes de autorizar uma nova senha. Não altere o modelo de recuperação de senha da conta: o recurso usa o modelo Magic Link.
+3. Em Authentication → Providers → Email, mantenha o provedor de e-mail habilitado para Magic Links. Google continua sendo a forma de entrada na página inicial.
+4. Confira Site URL `https://itext-1b9da.web.app` e Redirect URL `https://itext-1b9da.web.app/`.
+5. Para entregar e-mails a pessoas fora da equipe do Supabase, configure SMTP nas opções de e-mail do projeto. O remetente e a senha SMTP ficam apenas no painel Supabase. Não envie senha ao chat. O envio padrão do Supabase pode ser usado somente para os destinatários que ele permite; ele não deve ser anunciado como entrega garantida para todos os usuários.
+6. Depois de publicar, guarde seu código de recuperação das mensagens, ative uma senha de bloqueio, recarregue e teste **Esqueci meu PIN**. Abra o link no mesmo navegador e aparelho em até 15 minutos. Confira se ele permite definir uma nova senha e se o link não pode ser usado novamente.
+
+A entrega de e-mail e o fluxo completo em aparelho real ainda não foram testados. A verificação automatizada confirma que sessão Google existente, e-mail diferente, callback inválido e solicitação expirada não concedem autorização de redefinição. Não foi contratado nenhum serviço pago.
+
+Redefinir o PIN remove o acesso de mensagens lembrado neste aparelho. O código guardado continua necessário para abrir as conversas uma vez e lembrar o acesso novamente. Ele não é enviado ao servidor e não é recuperado por e-mail.
+
+Em **Configurações → Privacidade das curtidas**, cada usuário pode mostrar ou ocultar suas curtidas no perfil. Por padrão elas são privadas. A atualização do banco correspondente já foi aplicada no projeto atual; o bloco de publicação não reaplica migrações.
