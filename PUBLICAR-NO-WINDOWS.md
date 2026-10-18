@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/9716df18d7a158e5c2c587c7eb3302eb165a7582.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/62dd3edb2d5a4831aa6f4c1b4a33463dcf69331a.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -75,7 +75,7 @@ A callback do Google continua sendo `https://qnjanobhsnvrxoraifcc.supabase.co/au
 
 ## 4. Primeiro login e conta de criador
 
-Abra a URL publicada e entre com sua própria conta Google. Sua conta aparecerá automaticamente em Supabase → Authentication → Users. O chat continua bloqueado até selecionar essa conta e ativar a chave do criador.
+Abra a URL publicada e entre com sua própria conta Google. Sua conta aparecerá automaticamente em Supabase → Authentication → Users. Mensagens padrão já podem ser usadas sem chaves. A configuração do criador é necessária para a proteção adicional opcional.
 
 Copie o **User UID** da sua conta e siga a seção “Ativar sua conta de criador” em [PUBLICAR-FORA-DO-CHATGPT.md](PUBLICAR-FORA-DO-CHATGPT.md). Não envie códigos de recuperação, senhas ou tokens ao chat.
 
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/9716df18d7a158e5c2c587c7eb3302eb165a7582.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/62dd3edb2d5a4831aa6f4c1b4a33463dcf69331a.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -135,14 +135,14 @@ Aguarde **Deploy complete!**. Depois abra https://itext-1b9da.web.app em uma jan
 
 A barra lateral do computador agora permite rolar até o perfil em telas baixas, preservando o tamanho dos botões. A atualização inclui navegação para celular, tablet e computador, curtidas, seguidores, busca de pessoas, edição de perfil, mensagens não lidas, confirmação de leitura, busca no histórico carregado, emojis e aviso de nova versão. A confirmação de leitura depende de a pessoa abrir e desbloquear a conversa. O aviso de atualização funcionará para publicações futuras, após instalar esta primeira versão que contém o aviso.
 
-O bloco não executa migrações nem altera registros ou códigos de recuperação. A migração de seguidores e leitura já foi aplicada neste projeto Supabase. A conta do criador e sua chave continuam cadastradas; não precisa criá-las novamente. Para habilitar mensagens neste aparelho, abra Configurações → Acesso às mensagens e use seu código guardado uma vez; depois as conversas abrem com o acesso salvo.
+O bloco não executa migrações nem altera registros ou códigos de recuperação. A migração de seguidores e leitura já foi aplicada neste projeto Supabase. A conta do criador e sua chave continuam cadastradas; não precisa criá-las novamente. Mensagens padrão funcionam sem configurar código. Somente se escolher a proteção adicional em Configurações será necessário cadastrar ou recuperar uma chave.
 
-Foram aprovados 29 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
+Foram aprovados 32 testes automatizados e o build. Ainda falta conferir a interface nos aparelhos reais e trocar mensagens entre contas reais após a publicação. Não foram criados perfis, seguidores ou mensagens fictícios.
 
 
 ## Configurar identificação por e-mail para recuperar PIN
 
-Esta versão inclui em **Configurações → Segurança deste aparelho** um PIN ou senha opcional. Em **Configurações → Acesso às mensagens**, o botão **Salvar acesso neste aparelho** permite abrir as conversas sem repetir o código. Não há campo de senha/código na tela de conversas. Quando a chave ainda não estiver salva no aparelho, use o código original uma vez nas Configurações. Não é criado outro código no lugar da chave existente. O bloqueio e a chave lembrada pertencem a este navegador/aparelho. A senha local não substitui o login Google.
+Esta versão inclui em **Configurações → Segurança deste aparelho** um PIN ou senha opcional. Em **Configurações → Proteção adicional das mensagens**, a opção **Quero ativar a proteção adicional com código** vem desativada. O formulário com código só aparece quando o usuário escolhe ativá-la. As mensagens padrão funcionam sem essa configuração e são armazenadas como texto no servidor, com autenticação e permissões de acesso. Os participantes precisam ativar a opção para novas mensagens com proteção adicional; se ela estiver indisponível, o remetente escolhe explicitamente o modo padrão ou configura o acesso. O bloqueio e a chave lembrada pertencem a este navegador/aparelho. A senha local não substitui o login Google.
 
 O botão **Esqueci meu PIN: enviar solicitação de identificação** está implementado, mas o envio precisa da configuração de e-mail no Supabase:
 
@@ -160,4 +160,7 @@ Redefinir o PIN remove o acesso de mensagens lembrado neste aparelho. O código 
 Em **Configurações → Privacidade das curtidas**, cada usuário pode mostrar ou ocultar suas curtidas no perfil. Por padrão elas são privadas. A atualização do banco correspondente já foi aplicada no projeto atual; o bloco de publicação não reaplica migrações.
 
 
-A revisão da tela de conversas foi compilada e passou em 10 testes focados em criptografia, acesso salvo e versões. A renderização do código confirma que o campo de recuperação fica nas Configurações, com aviso sobre o acesso do criador. Ainda é necessário conferir o fluxo no aparelho real após publicar. Não há migração de banco nesta revisão.
+A revisão opcional passou em 32 testes e no build. A renderização do código confirma que o formulário só aparece com a opção ativada e que as conversas comuns não pedem senha/código. Ainda falta conferir os dois modos entre contas reais após publicar. A migração `20261018040725_optional_chat_protection.sql` já foi aplicada neste projeto Supabase, sem apagar ou converter mensagens e chaves. O bloco acima não reaplica migrações.
+
+
+Depois de **Deploy complete!**, abra o site e recarregue. Você pode usar **Mensagens** diretamente. Para conferir a escolha opcional, abra Configurações: deverá aparecer somente a opção de proteção adicional desativada, sem o formulário de código. Uma chave antiga só é necessária para ler mensagens antigas que já tenham sido criptografadas ou para escolher o modo adicional. O PIN de bloqueio do aparelho permanece separado e opcional.
