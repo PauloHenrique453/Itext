@@ -1,4 +1,5 @@
 import { supabase, initializeAuth } from './auth.js'
+import { attachmentInfo } from './content.js'
 
 const DEFAULT_SETTINGS = { feed: { mode: 'personalized' } }
 const taxonomy = [
@@ -32,6 +33,13 @@ async function displayUrl(value) {
   if (error) return null
   mediaCache.set(path,{url:data.signedUrl,expires:Date.now()+3300000})
   return data.signedUrl
+}
+async function displayMedia(item) {
+ if(item.type!=='file')return {...item,url:await displayUrl(item.url)}
+ const stored=storedUrl(item.url)
+ if(!stored?.startsWith(storagePrefix))return {...item,url:null}
+ const signed=await supabase.storage.from('itext-media').createSignedUrl(stored.slice(storagePrefix.length),3600,{download:(item.name||'arquivo').replace(/[\x00-\x1f]/g,'').slice(0,160)})
+ return {...item,url:signed.error?null:signed.data.signedUrl}
 }
 async function result(query) {
   const {data,error}=await query
@@ -87,11 +95,13 @@ async function lists(user) {
     groups.length?result(supabase.from('itext_group_counts').select('*').in('group_id',groups.map((row)=>row.id))):[],
     pages.length?result(supabase.from('itext_page_counts').select('*').in('page_id',pages.map((row)=>row.id))):[],
   ])
-  return {communities:groups.map((row)=>groupItem(row,user.id,ownMemberships.filter((entry)=>entry.group_id===row.id),groupCounts.find((entry)=>entry.group_id===row.id)?.members||0)),pages:await Promise.all(pages.map(async(row)=>({...row,avatar:await displayUrl(row.avatar_url),followers:pageCounts.find((entry)=>entry.page_id===row.id)?.followers||0,followed:ownFollows.some((entry)=>entry.page_id===row.id),isOwner:row.owner_id===user.id,verified:false}))),profiles:people.filter((entry)=>entry.id!==user.id).map((entry)=>({...entry,followed:user.following.includes(entry.id),score:entry.interests.filter((interest)=>user.interests.includes(interest)).length}))}
+  return {communities:await Promise.all(groups.map(async(row)=>({...groupItem(row,user.id,ownMemberships.filter((entry)=>entry.group_id===row.id),groupCounts.find((entry)=>entry.group_id===row.id)?.members||0),avatar:await displayUrl(row.avatar_url),coverUrl:await displayUrl(row.cover_url)}))),pages:await Promise.all(pages.map(async(row)=>({...row,avatar:await displayUrl(row.avatar_url),coverUrl:await displayUrl(row.cover_url),followers:pageCounts.find((entry)=>entry.page_id===row.id)?.followers||0,followed:ownFollows.some((entry)=>entry.page_id===row.id),isOwner:row.owner_id===user.id,verified:false}))),profiles:people.filter((entry)=>entry.id!==user.id).map((entry)=>({...entry,followed:user.following.includes(entry.id),score:entry.interests.filter((interest)=>user.interests.includes(interest)).length}))}
 }
-async function loadFeed(mode='chronological',{authorId,groupId}={}) {
+async function loadFeed(mode='chronological',{authorId,groupId,postId,after}={}) {
   const user=await currentProfile()
-  let query=supabase.from('itext_posts').select('*').order('created_at',{ascending:false}).limit(80)
+  let query=supabase.from('itext_posts').select('*').order('created_at',{ascending:false}).order('id',{ascending:false}).limit(80)
+  if(postId)query=query.eq('id',postId)
+  if(after)query=query.or(`created_at.lt.${after.createdAt},and(created_at.eq.${after.createdAt},id.lt.${after.id})`)
   if (authorId) query=query.eq('author_id',authorId)
   if (groupId) query=query.eq('group_id',groupId)
   if (mode==='following') {
@@ -103,7 +113,7 @@ async function loadFeed(mode='chronological',{authorId,groupId}={}) {
   const ids=rows.map((row)=>row.id)
   const [likes,comments,people,spaces,counts]=await Promise.all([
     user.authenticated?result(supabase.from('itext_likes').select('*').in('post_id',ids).eq('user_id',user.id)):[],
-    result(supabase.from('itext_comments').select('*').in('post_id',ids).order('created_at').limit(10000)),profiles(),lists(user),result(supabase.from('itext_post_counts').select('*').in('id',ids)),
+    [],profiles(),lists(user),result(supabase.from('itext_post_counts').select('*').in('id',ids)),
   ])
   const missing=[...new Set([...rows.map((row)=>row.author_id),...comments.map((row)=>row.author_id)])].filter((id)=>id!==user.id&&!people.some((entry)=>entry.id===id))
   if (missing.length) people.push(...await Promise.all((await result(supabase.from('itext_public_profiles').select('*').in('id',missing))).map((row)=>profile(row))))
@@ -120,10 +130,10 @@ async function loadFeed(mode='chronological',{authorId,groupId}={}) {
     const page=spaces.pages.find((entry)=>entry.id===row.page_id)
     const interest=(row.categories||[]).filter((entry)=>user.interests.includes(entry))
     const relationship=user.following.includes(row.author_id)
-    return {id:row.id,author:author.name,authorId:author.id,handle:author.handle,avatar:author.avatar,verified:false,time:timeAgo(row.created_at),createdAt:row.created_at,editedAt:row.edited_at,text:row.text,code:row.code,media:await Promise.all((row.media||[]).map(async(item)=>({...item,url:await displayUrl(item.url)}))),tags:row.tags,categories:row.categories,likes:counts.find((entry)=>entry.id===row.id)?.likes||0,comments:counts.find((entry)=>entry.id===row.id)?.comments||0,liked:postLikes.some((entry)=>entry.user_id===user.id),commentsList:postComments.map((entry)=>({id:entry.id,text:entry.text,author:byId.get(entry.author_id)?.name||'Membro do Itext'})),groupId:row.group_id,pageId:row.page_id,context:group?{type:'group',name:group.name}:page?{type:'page',name:page.name}:null,kind:row.code?'game':row.media?.some((entry)=>entry.type==='video')?'video':'post',reason:interest.length?`combina com seu interesse em ${interest[0]}`:relationship?`você segue ${author.name}`:'foi publicada na comunidade',score:interest.length*2+(relationship?2:0)+Math.exp(-(Date.now()-new Date(row.created_at))/172800000)}
+    return {id:row.id,author:author.name,authorId:author.id,handle:author.handle,avatar:author.avatar,verified:false,time:timeAgo(row.created_at),createdAt:row.created_at,editedAt:row.edited_at,text:row.text,code:row.code,media:await Promise.all((row.media||[]).map(displayMedia)),tags:row.tags,categories:row.categories,likes:counts.find((entry)=>entry.id===row.id)?.likes||0,comments:counts.find((entry)=>entry.id===row.id)?.comments||0,liked:postLikes.some((entry)=>entry.user_id===user.id),commentsList:postComments.map((entry)=>({id:entry.id,text:entry.text,author:byId.get(entry.author_id)?.name||'Membro do Itext'})),groupId:row.group_id,pageId:row.page_id,context:group?{type:'group',name:group.name}:page?{type:'page',name:page.name}:null,kind:row.code?'game':row.media?.some((entry)=>entry.type==='video')?'video':'post',reason:interest.length?`combina com seu interesse em ${interest[0]}`:relationship?`você segue ${author.name}`:'foi publicada na comunidade',score:interest.length*2+(relationship?2:0)+Math.exp(-(Date.now()-new Date(row.created_at))/172800000)}
   }))
   if (mode==='personalized') posts.sort((a,b)=>b.score-a.score)
-  return {posts}
+  return {posts,hasMore:rows.length===80,cursor:posts.at(-1)||null}
 }
 async function toggle(table,keys) {
   const user=await identity()
@@ -146,6 +156,46 @@ async function dating() {
   return {profile:{bio:own.bio,birthDate:own.birth_date,city:own.city,latitude:own.latitude,longitude:own.longitude,interests:own.interests,photos:await Promise.all(own.photos.map(displayUrl)),lookingFor:own.looking_for,discoveryEnabled:own.discovery_enabled},candidates:await Promise.all(cards.filter((row)=>!row.swiped).map(asCard)),matches:await Promise.all(cards.filter((row)=>row.matched).map(asCard))}
 }
 export const socialApi={
+  authorFeed:(id,after=null)=>loadFeed('chronological',{authorId:id,after}),
+  async post(id){const data=await loadFeed('chronological',{postId:id});if(!data.posts.length)throw new Error('Publicação indisponível para sua conta.');return data.posts[0]},
+  async publicProfile(id){
+    const user=await identity()
+    const [row,counts,visible,follows]=await Promise.all([
+      result(supabase.from('itext_public_profiles').select('*').eq('id',id).single()),
+      result(supabase.from('itext_profile_counts').select('*').eq('id',id).single()),
+      result(supabase.rpc('itext_profile_content_visible',{profile_id:id})),
+      result(supabase.from('itext_follows').select('follower_id').eq('following_id',id).eq('follower_id',user.id)),
+    ])
+    return {...await profile(row,false,[],counts),contentVisible:visible,followed:!!follows.length}
+  },
+  async comments(postId,after=null){
+    const user=await identity()
+    let query=supabase.from('itext_comments').select('*').eq('post_id',postId).order('created_at').order('id').limit(100)
+    if(after)query=query.or(`created_at.gt.${after.created_at},and(created_at.eq.${after.created_at},id.gt.${after.id})`)
+    const rows=await result(query)
+    if(!rows.length)return {rows:[],hasMore:false,cursor:null}
+    const [people,counts,likes]=await Promise.all([
+      result(supabase.from('itext_public_profiles').select('id,name,avatar_url').in('id',[...new Set(rows.map(row=>row.author_id))])),
+      result(supabase.from('itext_comment_counts').select('*').in('id',rows.map(row=>row.id))),
+      result(supabase.from('itext_comment_likes').select('comment_id').eq('user_id',user.id).in('comment_id',rows.map(row=>row.id))),
+    ])
+    return {rows:await Promise.all(rows.map(async row=>{const author=people.find(person=>person.id===row.author_id);return {...row,author:author?.name||'Membro do Itext',avatar:await displayUrl(author?.avatar_url),likes:counts.find(item=>item.id===row.id)?.likes||0,liked:likes.some(item=>item.comment_id===row.id)}})),hasMore:rows.length===100,cursor:rows.at(-1)}
+  },
+  async replyComment(postId,text,parentId=null,id=crypto.randomUUID()){
+    const user=await identity(),payload={id,post_id:postId,author_id:user.id,text:text.trim(),parent_id:parentId}
+    const saved=await supabase.from('itext_comments').insert(payload).select('id').single()
+    if(saved.error?.code==='23505'){
+      const existing=await result(supabase.from('itext_comments').select('id,post_id,author_id,text,parent_id').eq('id',id).single())
+      if(Object.entries(payload).every(([key,value])=>existing[key]===value))return existing
+    }
+    if(saved.error)throw saved.error
+    return saved.data
+  },
+  toggleCommentLike:(id)=>toggle('itext_comment_likes',{comment_id:id,user_id:'@me'}),
+  async saveSpace(kind,id,payload){
+    const user=await identity()
+    return result(supabase.from(kind==='group'?'itext_groups':'itext_pages').update({name:payload.name.trim(),description:payload.description.trim(),category:payload.category||'Não definido',avatar_url:storedUrl(payload.avatar),cover_url:storedUrl(payload.coverUrl)}).eq('id',id).eq('owner_id',user.id).select('id').single())
+  },
   async stories(authorId=null) {
     const user=await identity()
     let query=supabase.from('itext_stories').select('*').order('created_at',{ascending:false}).limit(100)
@@ -198,7 +248,7 @@ export const socialApi={
     if(!visible)return {visible:false,posts:[],hasMore:false,cursor:null}
     const rows=await result(supabase.rpc('itext_liked_posts',{profile_id:profileId,after_id:after}))
     const authors=rows.length?await result(supabase.from('itext_public_profiles').select('id,name').in('id',[...new Set(rows.map((row)=>row.author_id))])):[]
-    const posts=await Promise.all(rows.map(async(row)=>({id:row.id,text:row.text,author:authors.find((entry)=>entry.id===row.author_id)?.name||'Membro do Itext',createdAt:row.created_at,hasCode:!!row.code,media:await Promise.all((row.media||[]).map(async(item)=>({...item,url:await displayUrl(item.url)})))})))
+    const posts=await Promise.all(rows.map(async(row)=>({id:row.id,authorId:row.author_id,text:row.text,author:authors.find((entry)=>entry.id===row.author_id)?.name||'Membro do Itext',createdAt:row.created_at,hasCode:!!row.code,media:await Promise.all((row.media||[]).map(displayMedia))})))
     return {visible:true,posts,hasMore:rows.length===40,cursor:rows.at(-1)?.id||null}
   },
   async people({query='',after=null,relation='all'}={}) {
@@ -225,18 +275,15 @@ export const socialApi={
   async saveSettings(_uid,settings) { const user=await identity(); return result(supabase.from('chat_profiles').update({settings:{feed:{mode:settings.feed.mode}},likes_public:settings.likesPublic===true}).eq('id',user.id)) },
   async saveProfile(_uid,payload) { const user=await identity(); if(!payload.name?.trim()||payload.name.trim().length>80||String(payload.bio||'').length>280)throw new Error('Confira o nome e a biografia do perfil.'); return result(supabase.from('chat_profiles').update({name:payload.name.trim(),bio:payload.bio,avatar_url:storedUrl(payload.avatar),cover_url:storedUrl(payload.coverUrl),theme_color:payload.themeColor}).eq('id',user.id)) },
   async createCommunity(payload) {
-    const id=await result(supabase.rpc('itext_create_group',{group_name:payload.name,group_description:payload.description||'',group_visibility:payload.visibility||'public',group_join_policy:payload.joinPolicy||'open'}))
+    const id=await result(supabase.rpc('itext_create_space_group',{group_name:payload.name,group_description:payload.description||'',group_visibility:payload.visibility||'public',group_join_policy:payload.joinPolicy||'open',group_avatar:storedUrl(payload.avatar),group_cover:storedUrl(payload.coverUrl),group_category:payload.category||'Não definido'}))
     return {community:{id,...payload}}
   },
-  async createPage(payload) { const user=await identity(); const page=await result(supabase.from('itext_pages').insert({owner_id:user.id,name:payload.name,category:payload.category,description:payload.description}).select().single()); return {page} },
+  async createPage(payload) { const user=await identity(); const page=await result(supabase.from('itext_pages').insert({owner_id:user.id,name:payload.name,category:payload.category||'Não definido',description:payload.description,avatar_url:storedUrl(payload.avatar),cover_url:storedUrl(payload.coverUrl)}).select().single()); return {page} },
   async uploadMedia(file) {
     const user=await identity()
-    const type=file.type.split('/')[0]
-    if (!['image','audio','video'].includes(type)) throw new Error('Escolha uma imagem, áudio ou vídeo.')
-    const limit={image:8000000,audio:18000000,video:28000000}[type]
-    if (file.size>limit) throw new Error('Este arquivo excede o limite de tamanho.')
+    const {type}=attachmentInfo(file)
     const path=`${user.id}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g,'-').slice(-80)}`
-    await result(supabase.storage.from('itext-media').upload(path,file,{contentType:file.type,upsert:false}))
+    await result(supabase.storage.from('itext-media').upload(path,file,{contentType:file.type||'application/octet-stream',upsert:false}))
     return {media:{url:await displayUrl(storagePrefix+path),storagePath:path,type,name:file.name,size:file.size}}
   },
   async group(id,inviteCode='') {
@@ -246,9 +293,10 @@ export const socialApi={
     const [members,people,feed]=await Promise.all([result(supabase.from('itext_group_members').select('*').eq('group_id',id)),profiles(),loadFeed('chronological',{groupId:id})])
     const group=groupItem(rows[0],user.id,members)
     group.join_policy=rows[0].join_policy
+    group.avatar=await displayUrl(rows[0].avatar_url);group.coverUrl=await displayUrl(rows[0].cover_url)
     if (group.canManage) { const invite=await result(supabase.from('itext_group_invites').select('code').eq('group_id',id).single());group.shareCode=invite.code }
     const names=new Map([...people,user].map((entry)=>[entry.id,entry]))
-    return {group,posts:feed.posts,sessions:[],members:members.filter((entry)=>entry.status==='active').map((entry)=>({...names.get(entry.user_id),role:entry.role})),pending:members.filter((entry)=>entry.status==='pending').map((entry)=>({...names.get(entry.user_id),userId:entry.user_id}))}
+    return {group,posts:feed.posts,sessions:[],members:members.filter((entry)=>entry.status==='active').map((entry)=>({id:entry.user_id,...names.get(entry.user_id),role:entry.role})),pending:members.filter((entry)=>entry.status==='pending').map((entry)=>({...names.get(entry.user_id),userId:entry.user_id}))}
   },
   async joinGroup(id,code='') { return {status:await result(supabase.rpc('itext_join_group',{gid:id,invite_code:code||''}))} },
   approveGroupMember:(id,uid)=>result(supabase.rpc('itext_approve_member',{gid:id,member_id:uid})),

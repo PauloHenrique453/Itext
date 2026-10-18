@@ -1,0 +1,15 @@
+import { useEffect,useState } from 'react'
+import { MessageCircle,UserPlus } from 'lucide-react'
+import Avatar from '../components/Avatar.jsx'
+import ViewHeader from '../components/ViewHeader.jsx'
+import { itextApi } from '../services/itextApi.js'
+import ProfilePhotos from './ProfilePhotos.jsx'
+import ProfilePosts from './ProfilePosts.jsx'
+import LikedPosts from './LikedPosts.jsx'
+import Stories from './Stories.jsx'
+export default function PublicProfileView({profileId,user,onNotify,onMessage,onFollow,onChanged}){
+ const [person,setPerson]=useState(null),[error,setError]=useState(''),[tab,setTab]=useState('posts'),[busy,setBusy]=useState(false)
+ useEffect(()=>{let active=true;setPerson(null);setError('');void itextApi.publicProfile(profileId).then(row=>{if(active){setPerson(row);if(!row.contentVisible)setTab('photos')}}).catch(issue=>{if(active)setError(issue.message)});return()=>{active=false}},[profileId])
+ async function follow(){if(busy)return;setBusy(true);try{const followed=await onFollow(profileId);setPerson(previous=>({...previous,followed,followersCount:Math.max(0,previous.followersCount+(followed?1:-1))}))}catch(issue){onNotify(issue.message)}finally{setBusy(false)}}
+ return <main className="feature-view profile-view"><ViewHeader title={person?.name||'Perfil'} subtitle="Publicações, fotos e atividade pública."/>{error?<p role="alert" className="chat-error">{error}</p>:!person?<p className="empty-inline">Carregando perfil…</p>:<><div className="profile-cover" style={person.coverUrl?{backgroundImage:`url(${person.coverUrl})`}:undefined}/><section className="profile-main"><div className="profile-main__top"><Avatar userId={person.id} src={person.avatar} alt={person.name} size="xl"/><div className="person-actions"><button className="secondary-button" disabled={busy||!person.contentVisible} onClick={follow}><UserPlus size={17}/>{person.followed?'Seguindo':'Seguir'}</button><button className="secondary-button" onClick={()=>onMessage(person)}><MessageCircle size={17}/>Mensagem</button></div></div><h1>{person.name}</h1><span>{person.handle}</span>{person.bio?<p>{person.bio}</p>:null}<div className="profile-counts"><span><strong>{person.followersCount}</strong> seguidores</span><span><strong>{person.followingCount}</strong> seguindo</span></div></section>{person.contentVisible?<Stories user={user} authorId={profileId} onNotify={onNotify} onMessage={onMessage}/>:<p className="empty-inline">Este perfil está disponível para você somente com suas fotos publicadas.</p>}<div className="profile-tabs" role="group" aria-label="Conteúdo do perfil">{[['posts','Publicações'],['photos','Fotos'],['likes','Curtidas']].map(([id,label])=><button key={id} className={tab===id?'is-active':''} disabled={!person.contentVisible&&id!=='photos'} onClick={()=>setTab(id)}>{label}</button>)}</div><div className="profile-posts">{!person.contentVisible||tab==='photos'?<ProfilePhotos profileId={profileId}/>:tab==='likes'?<LikedPosts profileId={profileId}/>:<ProfilePosts profileId={profileId} user={user} onNotify={onNotify} onChanged={onChanged}/>}</div></>}</main>
+}

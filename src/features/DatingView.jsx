@@ -51,7 +51,7 @@ function DatingSetup({ user, initial, onClose, onSave, onUploadMedia, onNotify }
 }
 
 function MatchCard({ item }) {
-  return <article className="dating-match"><Avatar src={item.avatar} alt={item.name} /><span><strong>{item.name}, {item.age}</strong><small>{item.distanceLabel}</small></span><Heart size={17} fill="currentColor" /></article>
+  return <article className="dating-match"><Avatar userId={item.id} src={item.avatar} alt={item.name} /><span><strong>{item.name}, {item.age}</strong><small>{item.distanceLabel}</small></span><Heart size={17} fill="currentColor" /></article>
 }
 
 export default function DatingView({ user, data, onLoad, onSave, onSwipe, onUploadMedia, onNotify }) {

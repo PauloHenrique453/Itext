@@ -23,6 +23,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/migrations/20261018022252_profile_likes_privacy.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018040725_optional_chat_protection.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018044842_stories_requests_and_message_actions.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261018051650_comments_notifications_presence_spaces.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -466,5 +467,145 @@ test('new message and story API tables deny anonymous reads and all metadata-onl
   await assert.rejects(db.query('update public.itext_blocks set blocker_id=$1',[THREE]))
   await assert.rejects(db.query('update public.itext_blocks set created_at=now()'))
   await assert.rejects(db.query('insert into public.itext_conversation_settings(user_id,partner_id,accepted) values($1,$2,true)',[TWO,ONE]))
+ }finally{await db.close()}
+})
+
+test('comment replies and likes enforce parent post, blocked authors and private group permissions',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const post=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Post') returning id",[ONE])).rows[0].id
+  const other=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Outro') returning id",[ONE])).rows[0].id
+  const parent=(await db.query("insert into public.itext_comments(post_id,author_id,text) values($1,$2,'Comentário') returning id",[post,ONE])).rows[0].id
+  await as(db,TWO)
+  const reply=(await db.query("insert into public.itext_comments(post_id,author_id,text,parent_id) values($1,$2,'Resposta',$3) returning id",[post,TWO,parent])).rows[0].id
+  await assert.rejects(db.query("insert into public.itext_comments(post_id,author_id,text,parent_id) values($1,$2,'Post errado',$3)",[other,TWO,parent]))
+  await db.query('insert into public.itext_comment_likes(comment_id,user_id) values($1,$2)',[parent,TWO])
+  await assert.rejects(db.query('insert into public.itext_comment_likes(comment_id,user_id) values($1,$2)',[reply,ONE]))
+  await as(db,THREE)
+  assert.equal((await db.query('select likes from public.itext_comment_counts where id=$1',[parent])).rows[0].likes,1)
+  assert.equal((await db.query('select * from public.itext_comment_likes')).rows.length,0)
+  await as(db,ONE)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
+  assert.equal((await db.query('select * from public.itext_comments where id=$1',[reply])).rows.length,0)
+  await as(db,TWO)
+  await assert.rejects(db.query("insert into public.itext_comments(post_id,author_id,text,parent_id) values($1,$2,'Bloqueado',$3)",[post,TWO,parent]))
+  await assert.rejects(db.query('insert into public.itext_comment_likes(comment_id,user_id) values($1,$2)',[parent,TWO]))
+  await assert.rejects(db.query('update public.itext_comments set parent_id=null where id=$1',[reply]))
+ }finally{await db.close()}
+})
+
+test('notifications are derived from real actions, private to their recipient and cannot be forged or marked for another user',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const post=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Post') returning id",[ONE])).rows[0].id
+  await db.query('insert into public.itext_likes(post_id,user_id) values($1,$2)',[post,ONE])
+  assert.equal((await db.query('select * from public.itext_notifications')).rows.length,0)
+  await as(db,TWO)
+  await db.query('insert into public.itext_likes(post_id,user_id) values($1,$2)',[post,TWO])
+  const parent=(await db.query("insert into public.itext_comments(post_id,author_id,text) values($1,$2,'Comentário') returning id",[post,TWO])).rows[0].id
+  await as(db,THREE)
+  await db.query("insert into public.itext_comments(post_id,author_id,text,parent_id) values($1,$2,'Resposta',$3)",[post,THREE,parent])
+  await as(db,ONE)
+  let own=(await db.query('select * from public.itext_notifications')).rows
+  assert.equal(own.length,3);assert.ok(own.some(row=>row.kind==='post_like'));assert.equal(own.every(row=>row.user_id===ONE),true)
+  const id=own[0].id
+  await as(db,TWO)
+  const theirs=(await db.query('select * from public.itext_notifications')).rows
+  assert.equal(theirs.length,1);assert.equal(theirs[0].kind,'reply')
+  await db.query('select public.itext_mark_notifications($1)',[[id]])
+  await assert.rejects(db.query("insert into public.itext_notifications(user_id,actor_id,kind) values($1,$2,'follow')",[TWO,ONE]))
+  await assert.rejects(db.query('update public.itext_notifications set read_at=now()'))
+  await as(db,ONE)
+  assert.equal((await db.query('select read_at from public.itext_notifications where id=$1',[id])).rows[0].read_at,null)
+  await db.query('select public.itext_mark_notifications($1)',[[id]])
+  assert.ok((await db.query('select read_at from public.itext_notifications where id=$1',[id])).rows[0].read_at)
+  assert.ok((await db.query('select version from public.itext_activity')).rows[0].version>=4)
+  await as(db,TWO)
+  await db.query('delete from public.itext_likes where post_id=$1 and user_id=$2',[post,TWO])
+  await as(db,ONE)
+  assert.equal((await db.query("select * from public.itext_notifications where kind='post_like'")).rows.length,0)
+  await as(db)
+  for(const table of ['itext_presence','itext_notifications','itext_activity','itext_comment_likes'])await assert.rejects(db.query(`select * from public.${table} limit 0`))
+ }finally{await db.close()}
+})
+
+test('presence uses independent server-timestamped leases, expires offline and hides status from blocked contacts',async()=>{
+ const db=await setup(),first=crypto.randomUUID(),second=crypto.randomUUID()
+ try{
+  await as(db,ONE)
+  await db.query('select public.itext_heartbeat($1,true)',[first]);await db.query('select public.itext_heartbeat($1,true)',[second])
+  await assert.rejects(db.query('update public.itext_presence set last_seen=now()'))
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_presence')).rows.length,0)
+  assert.equal((await db.query('select * from public.itext_online_status($1)',[[ONE]])).rows[0].online,true)
+  await db.query('select public.itext_heartbeat($1,false)',[first])
+  assert.equal((await db.query('select * from public.itext_online_status($1)',[[ONE]])).rows[0].online,true)
+  await as(db,ONE);await db.query('select public.itext_heartbeat($1,false)',[first])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_online_status($1)',[[ONE]])).rows[0].online,true)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'chat')",[TWO,ONE])
+  assert.equal((await db.query('select * from public.itext_online_status($1)',[[ONE]])).rows[0].online,false)
+  await as(db,ONE);await db.query('select public.itext_heartbeat($1,false)',[second])
+  await as(db,THREE)
+  assert.equal((await db.query('select * from public.itext_online_status($1)',[[ONE]])).rows[0].online,false)
+  await as(db,ONE);await db.query('select public.itext_heartbeat($1,true)',[first])
+  await db.exec('reset role');await db.query("update public.itext_presence set last_seen=now()-interval '91 seconds' where user_id=$1",[ONE])
+  await as(db,THREE)
+  assert.equal((await db.query('select * from public.itext_online_status($1)',[[ONE]])).rows[0].online,false)
+ }finally{await db.close()}
+})
+
+test('space photos, covers and custom categories are owner-controlled and group thumbnails stay private',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const photo='itext-media:'+ONE+'/group.png'
+  const group=(await db.query("select public.itext_create_space_group('Espaço','','private','open',$1,$1,'Astronomia') as id",[photo])).rows[0].id
+  assert.equal((await db.query('select category from public.itext_groups where id=$1',[group])).rows[0].category,'Astronomia')
+  const page=(await db.query('insert into public.itext_pages(owner_id,name,avatar_url,cover_url) values($1,\'Página\',$2,$2) returning id',[ONE,photo])).rows[0].id
+  await assert.rejects(db.query('update public.itext_groups set avatar_url=$1 where id=$2',['itext-media:'+TWO+'/stolen.png',group]))
+  await db.query('update public.itext_groups set category=$1 where id=$2',['Não definido',group])
+  await assert.rejects(db.query('update public.itext_groups set owner_id=$1 where id=$2',[TWO,group]))
+  await as(db,TWO)
+  await db.query('update public.itext_pages set name=$1 where id=$2',['Falso',page])
+  await db.query('update public.itext_groups set name=$1 where id=$2',['Falso',group])
+  await as(db,ONE)
+  assert.equal((await db.query('select name from public.itext_pages where id=$1',[page])).rows[0].name,'Página')
+  const onlyPrivate=ONE+'/private-thumb.png'
+  await db.query('update public.itext_groups set cover_url=$1 where id=$2',['itext-media:'+onlyPrivate,group])
+  await as(db,TWO)
+  assert.equal((await db.query('select public.itext_media_readable($1) as allowed',[onlyPrivate])).rows[0].allowed,false)
+  await assert.rejects(db.query("select public.itext_create_space_group('Inválido','','public','open',$1,null,'Arte')",['itext-media:'+ONE+'/stolen.png']))
+ }finally{await db.close()}
+})
+
+test('private comments and message notifications remain hidden after blocks, conversation clearing and sender deletion',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const group=(await db.query("select public.itext_create_group('Privado','','private','open') as id")).rows[0].id
+  const post=(await db.query("insert into public.itext_posts(author_id,text,group_id) values($1,'Privado',$2) returning id",[ONE,group])).rows[0].id
+  const comment=(await db.query("insert into public.itext_comments(post_id,author_id,text) values($1,$2,'Privado') returning id",[post,ONE])).rows[0].id
+  await as(db,TWO)
+  await assert.rejects(db.query('insert into public.itext_comment_likes(comment_id,user_id) values($1,$2)',[comment,TWO]))
+  await assert.rejects(db.query("insert into public.itext_comments(post_id,author_id,text,parent_id) values($1,$2,'Resposta indevida',$3)",[post,TWO,comment]))
+  const message=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Mensagem') returning id",[TWO,THREE])).rows[0].id
+  await as(db,THREE)
+  let rows=(await db.query('select * from public.itext_notifications')).rows
+  assert.equal(rows.length,1);assert.equal(rows[0].kind,'message');assert.equal(rows[0].message_id,message)
+  await db.query("select public.itext_conversation_action($1,'clear')",[TWO])
+  assert.equal((await db.query('select * from public.itext_notifications')).rows.length,0)
+  await as(db,TWO)
+  await db.query("select public.itext_message_action($1,'delete')",[message])
+  await db.exec('reset role')
+  assert.equal((await db.query('select * from public.itext_notifications where message_id=$1',[message])).rows.length,0)
+  await as(db,TWO)
+  await db.query('insert into public.itext_follows(follower_id,following_id) values($1,$2)',[TWO,ONE])
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.itext_notifications')).rows.length,1)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
+  assert.equal((await db.query('select * from public.itext_notifications')).rows.length,0)
  }finally{await db.close()}
 })

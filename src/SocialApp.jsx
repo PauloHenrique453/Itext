@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Code2, Menu, MessageCircle, PanelsTopLeft, Send, UserPlus, UsersRound } from 'lucide-react'
+import { Bell, Code2, Menu, MessageCircle, PanelsTopLeft, Send, UserPlus, UsersRound } from 'lucide-react'
 import Brand from './components/Brand.jsx'
 import Avatar from './components/Avatar.jsx'
 import MobileNav from './components/MobileNav.jsx'
@@ -10,7 +10,12 @@ import Toast from './components/Toast.jsx'
 import CommunitiesView from './features/CommunitiesView.jsx'
 import DatingView from './features/DatingView.jsx'
 import ExploreView from './features/ExploreView.jsx'
-import FeedView from './features/FeedView.jsx'
+import FeedView,{ Composer } from './features/FeedView.jsx'
+import PublicProfileView from './features/PublicProfileView.jsx'
+import PostDetailView from './features/PostDetailView.jsx'
+import NotificationsView from './features/NotificationsView.jsx'
+import { ProfileNavigation } from './components/ProfileNavigation.jsx'
+import { usePresence,useNotificationCount } from './hooks/useActivity.js'
 import Onboarding from './features/Onboarding.jsx'
 import PagesView from './features/PagesView.jsx'
 import ProfileView from './features/ProfileView.jsx'
@@ -25,41 +30,10 @@ import { useItextBackend } from './hooks/useItextBackend.js'
 
 const wideViews = new Set(['messages', 'shorts', 'settings', 'dating'])
 
-function QuickCreate({ onClose, onPublish, onNavigate, onNotify }) {
-  const [mode, setMode] = useState('post')
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submit(event) {
-    event.preventDefault()
-    if (!text.trim()) return
-    setBusy(true)
-    try {
-      await onPublish({ text: text.trim() })
-      onNotify('Publicação salva.')
-      onClose()
-      onNavigate('home')
-    } catch (error) {
-      onNotify(error.message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Modal title="Criar no Itext" onClose={onClose}>
-      <div className="quick-create-types">
-        <button className={mode === 'post' ? 'is-active' : ''} onClick={() => setMode('post')}><Send size={19} /><span><strong>Publicação</strong><small>Compartilhe uma ideia</small></span></button>
-        <button onClick={() => { onNavigate('home'); onClose() }}><Code2 size={19} /><span><strong>Código</strong><small>Abra o editor no feed</small></span></button>
-        <button onClick={() => { onNavigate('communities'); onClose() }}><UsersRound size={19} /><span><strong>Comunidade</strong><small>Reúna pessoas</small></span></button>
-        <button onClick={() => { onNavigate('pages'); onClose() }}><PanelsTopLeft size={19} /><span><strong>Página</strong><small>Publique com sua marca</small></span></button>
-      </div>
-      <form className="quick-create-form" onSubmit={submit}>
-        <textarea autoFocus value={text} onChange={(event) => setText(event.target.value)} placeholder={mode === 'code' ? 'Descreva o experimento que quer compartilhar…' : 'O que está acontecendo?'} />
-        <div className="form-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={busy || !text.trim()}>{busy ? 'Sincronizando…' : 'Publicar'}</button></div>
-      </form>
-    </Modal>
-  )
+function QuickCreate({onClose,onPublish,onNavigate,onNotify,user,communities,pages,onUploadMedia}) {
+ const [busy,setBusy]=useState(false)
+ async function publish(payload){setBusy(true);try{await onPublish(payload);onNotify('Publicação salva.');onClose();onNavigate('home')}catch(issue){onNotify(issue.message);throw issue}finally{setBusy(false)}}
+ return <Modal title="Criar publicação" onClose={()=>{if(!busy)onClose()}} size="lg"><Composer user={user} communities={communities} pages={pages} onUploadMedia={onUploadMedia} onPublish={publish} isPublishing={busy}/></Modal>
 }
 
 function LoadingScreen() {
@@ -67,7 +41,9 @@ function LoadingScreen() {
 }
 
 export default function SocialApp() {
-  const [activeView, setActiveView] = useState(() => new URLSearchParams(window.location.search).has('grupo') ? 'communities' : 'home')
+  const [activeView, setActiveView] = useState(() => new URLSearchParams(window.location.search).has('perfil')?'member-profile':new URLSearchParams(window.location.search).has('post')?'post':new URLSearchParams(window.location.search).has('grupo') ? 'communities' : 'home')
+  const [profileTarget,setProfileTarget]=useState(()=>new URLSearchParams(window.location.search).get('perfil'))
+  const [postTarget,setPostTarget]=useState(()=>({id:new URLSearchParams(window.location.search).get('post'),commentId:null}))
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [toast, setToast] = useState('')
@@ -75,6 +51,8 @@ export default function SocialApp() {
   const [showMenu, setShowMenu] = useState(false)
   const [peopleFilter, setPeopleFilter] = useState('all')
   const backend = useItextBackend()
+  usePresence(backend.user?.authenticated?backend.user.id:null)
+  const notificationCount=useNotificationCount(backend.user?.authenticated?backend.user.id:null)
   const unread = useUnreadCount(backend.user?.authenticated ? backend.user.id : null)
 
   const notify = useCallback((message) => setToast(message), [])
@@ -106,7 +84,10 @@ export default function SocialApp() {
     return () => window.removeEventListener('keydown', handleShortcut)
   }, [])
 
+  function openProfile(id){setShowCreate(false);setShowMenu(false);setProfileTarget(id);setActiveView(id===backend.user?.id?'profile':'member-profile');const url=new URL(window.location.href);url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('perfil',id);window.history.replaceState(null,'',url);window.scrollTo({top:0})}
+  function openPost(id,commentId=null){setPostTarget({id,commentId});setActiveView('post');const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('post',id);window.history.replaceState(null,'',url);window.scrollTo({top:0})}
   function navigate(view) {
+    const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
     if (view === 'messages') setConversationTarget(null)
     if (view === 'people') setPeopleFilter('all')
     setShowMenu(false)
@@ -119,6 +100,7 @@ export default function SocialApp() {
   }
 
   function startConversation(person) {
+    const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
     setConversationTarget(person); setActiveView('messages'); setShowMenu(false)
   }
 
@@ -144,32 +126,36 @@ export default function SocialApp() {
   if (!backend.user) return <main className="app-loading"><Brand /><p role="alert">{backend.error || 'Não foi possível conectar ao Itext.'}</p><button className="primary-button" onClick={backend.refresh}>Tentar novamente</button></main>
 
   let view
-  switch (activeView) {
+  const viewId=activeView==='member-profile'&&profileTarget===backend.user.id?'profile':activeView
+  switch (viewId) {
+    case 'member-profile': view=<PublicProfileView key={profileTarget} profileId={profileTarget} user={backend.user} onNotify={notify} onMessage={startConversation} onFollow={backend.toggleProfileFollow} onChanged={backend.refresh}/>;break
+    case 'post':view=<PostDetailView key={postTarget.id+':'+postTarget.commentId} postId={postTarget.id} commentId={postTarget.commentId} user={backend.user} onNotify={notify} onChanged={backend.refresh}/>;break
+    case 'notifications':view=<NotificationsView user={backend.user} onNotify={notify} onOpenPost={openPost} onMessage={startConversation} onNavigate={navigate} onProfile={openProfile}/>;break
     case 'explore': view = <ExploreView key={searchQuery} initialQuery={searchQuery} onNavigate={navigate} onFindPeople={() => navigate('people')} posts={backend.posts} profiles={backend.profiles} communities={backend.communities} pages={backend.pages} user={backend.user} />; break
     case 'people': view = <PeopleView key={peopleFilter} initialFilter={peopleFilter} user={backend.user} onFollow={backend.toggleProfileFollow} onMessage={startConversation} onNotify={notify} />; break
     case 'messages': view = <MessagesView onSocialChange={backend.refresh} user={backend.user} onNotify={notify} initialPerson={conversationTarget} onConfigureSecurity={() => navigate('settings')} onFindPeople={() => navigate('people')} />; break
     case 'shorts': view = <ShortsView posts={backend.posts} />; break
     case 'dating': view = <DatingView user={backend.user} data={backend.dating} onLoad={backend.getDating} onSave={backend.saveDatingProfile} onSwipe={backend.swipeDatingProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
-    case 'communities': view = <CommunitiesView communities={backend.communities} onCreateCommunity={backend.createCommunity} onOpenGroup={backend.openGroup} onJoinGroup={backend.joinGroup} onApproveMember={backend.approveGroupMember} onNotify={notify} />; break
-    case 'pages': view = <PagesView pages={backend.pages} onCreatePage={backend.createPage} onToggleFollow={backend.togglePageFollow} onNotify={notify} />; break
+    case 'communities': view = <CommunitiesView communities={backend.communities} categories={[...backend.communities,...backend.pages].map(space=>space.category).filter(Boolean)} onSaveSpace={backend.saveSpace} onUploadMedia={backend.uploadMedia} onCreateCommunity={backend.createCommunity} onOpenGroup={backend.openGroup} onJoinGroup={backend.joinGroup} onApproveMember={backend.approveGroupMember} onNotify={notify} />; break
+    case 'pages': view = <PagesView pages={backend.pages} categories={[...backend.communities,...backend.pages].map(space=>space.category).filter(Boolean)} onSaveSpace={backend.saveSpace} onUploadMedia={backend.uploadMedia} onCreatePage={backend.createPage} onToggleFollow={backend.togglePageFollow} onNotify={notify} />; break
     case 'profile': view = <ProfileView onPeople={() => openPeople('followers')} posts={backend.ownPosts} user={backend.user} communities={backend.communities} pages={backend.pages} onNavigate={navigate} onSaveProfile={backend.saveProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} onEditPost={backend.editPost} onDeletePost={backend.deletePost} onMessage={startConversation} />; break
     case 'settings': view = <SettingsView user={backend.user} onSave={backend.saveSettings} onSaveInterests={backend.savePreferences} onNotify={notify} />; break
-    default: view = <FeedView posts={backend.posts} user={backend.user} communities={backend.communities} pages={backend.pages} feedMode={backend.feedMode} setFeedMode={backend.setFeedMode} onPublish={backend.publishPost} onUploadMedia={backend.uploadMedia} onToggleLike={toggleLike} onAddComment={addComment} onNotify={notify} onSearch={search} onEditPost={backend.editPost} onDeletePost={backend.deletePost} onMessage={startConversation} />
+    default: view = <FeedView posts={backend.posts} user={backend.user} communities={backend.communities} pages={backend.pages} feedMode={backend.feedMode} setFeedMode={backend.setFeedMode} onPublish={backend.publishPost} onUploadMedia={backend.uploadMedia} onToggleLike={toggleLike} onAddComment={addComment} onChanged={backend.refresh} onNotify={notify} onSearch={search} onEditPost={backend.editPost} onDeletePost={backend.deletePost} onMessage={startConversation} />
   }
 
-  const hideRightRail = wideViews.has(activeView)
+  const hideRightRail = wideViews.has(viewId)
 
   return (
-    <div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}`}>
-      <Sidebar activeView={activeView} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} unread={unread} />
-      <header className="mobile-header"><button onClick={() => navigate('home')}><Brand /></button><div className="mobile-header__actions"><button onClick={() => navigate('people')} aria-label="Encontrar pessoas"><UserPlus size={20}/></button><button onClick={() => navigate('messages')} aria-label={`Mensagens${unread ? `, ${unread} não lidas` : ''}`} className="unread-icon"><MessageCircle size={20}/>{unread ? <b>{unread > 99 ? '99+' : unread}</b> : null}</button><button onClick={() => setShowMenu(true)} aria-label="Abrir menu"><Menu size={20}/></button><button className="mobile-profile-button" onClick={() => navigate('profile')} aria-label="Abrir meu perfil"><Avatar src={backend.user.avatar} alt="" size="xs" /></button></div></header>
+    <ProfileNavigation.Provider value={openProfile}><div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}`}>
+      <Sidebar activeView={viewId} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} unread={unread} notifications={notificationCount} />
+      <header className="mobile-header"><button onClick={() => navigate('home')}><Brand /></button><div className="mobile-header__actions"><button onClick={() => navigate('people')} aria-label="Encontrar pessoas"><UserPlus size={20}/></button><button onClick={() => navigate('messages')} aria-label={`Mensagens${unread ? `, ${unread} não lidas` : ''}`} className="unread-icon"><MessageCircle size={20}/>{unread ? <b>{unread > 99 ? '99+' : unread}</b> : null}</button><button className="unread-icon" onClick={()=>navigate('notifications')} aria-label={`Notificações${notificationCount?`, ${notificationCount} não lidas`:''}`}><Bell size={20}/>{notificationCount?<b>{notificationCount>99?'99+':notificationCount}</b>:null}</button><button onClick={() => setShowMenu(true)} aria-label="Abrir menu"><Menu size={20}/></button><button className="mobile-profile-button" onClick={() => navigate('profile')} aria-label="Abrir meu perfil"><Avatar userId={backend.user.id} src={backend.user.avatar} alt="" size="xs" /></button></div></header>
       <div className="app-main">{independent && backend.user.authenticated ? <div className="signin-banner"><span>{backend.user.name}</span><button className="secondary-button" onClick={() => signOut().catch((error) => notify(error.message))}>Sair</button></div> : null}{view}</div>
       {hideRightRail ? null : <RightRail onSearch={search} posts={backend.posts} profiles={backend.profiles} user={backend.user} onFollow={backend.toggleProfileFollow} onNotify={notify} />}
-      <MobileNav activeView={activeView} onNavigate={navigate} onCreate={() => setShowCreate(true)} unread={unread} />
+      <MobileNav activeView={viewId} onNavigate={navigate} onCreate={() => setShowCreate(true)} unread={unread} />
       {showMenu ? <Modal title="Navegar no Itext" onClose={() => setShowMenu(false)}><nav className="mobile-menu-grid" aria-label="Todas as páginas">{navItems.map(({id,label,icon:Icon}) => <button key={id} onClick={() => navigate(id)}><Icon size={22}/>{label}</button>)}</nav></Modal> : null}
-      {showCreate ? <QuickCreate onClose={() => setShowCreate(false)} onPublish={backend.publishPost} onNavigate={navigate} onNotify={notify} /> : null}
+      {showCreate ? <QuickCreate user={backend.user} communities={backend.communities} pages={backend.pages} onUploadMedia={backend.uploadMedia} onClose={() => setShowCreate(false)} onPublish={backend.publishPost} onNavigate={navigate} onNotify={notify} /> : null}
       {backend.user.authenticated && !backend.user.onboardingComplete ? <Onboarding user={backend.user} onComplete={completeOnboarding} /> : null}
       <Toast message={toast} />
-    </div>
+    </div></ProfileNavigation.Provider>
   )
 }

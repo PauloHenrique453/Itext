@@ -1172,3 +1172,103 @@ h1, h2, h3, .brand__name { font-family: Manrope, Inter, sans-serif; }
  .modal { max-height: calc(100dvh - 20px); }
  .reaction-picker { justify-content: space-between; gap: 3px; }
 }
+
+/* Shared profile navigation and current content composer */
+.avatar--link { cursor: pointer; }
+.avatar--link:focus-visible, .profile-name-link:focus-visible { outline: 2px solid var(--blue-bright); outline-offset: 4px; }
+.profile-name-link { color: inherit; font: inherit; font-weight: 700; text-align: left; border: 0; padding: 0; background: transparent; cursor: pointer; }
+.profile-name-link:hover { text-decoration: underline; }
+.composer--modern { border-radius: 20px; background: linear-gradient(125deg,#10253a,#0b1b2b); }
+.composer--modern .composer__input-row { align-items: flex-start; }
+.composer--modern .composer__input-row textarea { min-height: 90px; line-height: 1.6; font-size: 16px; }
+.composer--modern .composer__toolbar { flex-wrap: wrap; gap: 12px; }
+.composer--modern .composer__extras { flex-wrap: wrap; flex: 1; justify-content: flex-end; }
+.composer--modern .icon-button { min-width: 40px; min-height: 44px; }
+.composer-count { margin: 10px 0 0; color: var(--text-soft); font-size: 11px; text-align: right; }
+.composer-attachments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; padding-block: 12px; }
+.composer-attachment { min-width: 0; display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: #05152380; }
+.composer-attachment > img { width: 56px; height: 56px; object-fit: cover; border-radius: 9px; }
+.composer-attachment > svg { flex-shrink: 0; color: var(--blue-bright); }
+.composer-attachment > span { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.composer-attachment small { display: block; color: var(--text-soft); margin-top: 5px; }
+.composer-link-input { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 12px 0; }
+.composer-link-input input { flex: 1; min-width: 150px; border: 1px solid var(--line); background: var(--bg); color: var(--text); padding: 12px; border-radius: 10px; font-size: 16px; }
+.post-file,.post-links > a { min-width: 0; display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--line); border-radius: 13px; padding: 14px; color: var(--text); background: var(--surface); text-decoration: none; }
+.post-file > svg,.post-links svg { flex-shrink: 0; color: var(--blue-bright); }
+.post-file > span,.post-links > a > span { min-width: 0; flex: 1; }
+.post-file strong,.post-links strong { font-size: 13px; overflow-wrap: anywhere; }
+.post-file small,.post-links small { display: block; color: var(--text-soft); font-size: 11px; margin-top: 6px; overflow-wrap: anywhere; }
+.post-links { display: grid; gap: 8px; margin-block: 10px; }
+.post-links:empty { display: none; }
+.profile-post-stream { display: grid; gap: 12px; }
+.profile-post-stream .post-card { min-width: 0; }
+
+/* Complete comment dialog and reply hierarchy */
+.comments-dialog { padding: 18px; }
+.comment-thread { display: grid; gap: 14px; padding-top: 16px; }
+.thread-comment { min-width: 0; display: flex; align-items: flex-start; gap: 10px; margin-left: calc(var(--comment-depth) * 22px); padding: 12px; border: 1px solid var(--line-soft); border-radius: 13px; background: var(--surface); }
+.thread-comment > div { flex: 1; min-width: 0; }
+.thread-comment header { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.thread-comment header time { font-size: 10px; color: var(--text-soft); }
+.thread-comment p { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.7; }
+.thread-comment.is-highlighted { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue-soft); }
+.reply-label { display: block; margin-top: 6px; color: var(--text-soft); font-size: 11px; }
+.comment-actions { display: flex; gap: 12px; align-items: center; }
+.comment-actions button { display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 6px; color: var(--text-soft); border: 0; background: transparent; font-size: 12px; }
+.comment-actions button[aria-pressed=true] { color: #ff5c86; }
+.comment-compose { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+.comment-compose > div:last-child { display: flex; align-items: flex-start; gap: 10px; }
+.comment-compose textarea { flex: 1; min-width: 0; padding: 12px; min-height: 70px; color: var(--text); border: 1px solid var(--line); border-radius: 12px; background: var(--bg); resize: vertical; font-size: 16px; }
+.comment-compose .send-button { min-width: 44px; min-height: 44px; }
+
+/* Notification inbox and truthful connection status */
+.notification-list { display: grid; gap: 9px; }
+.notification { display: flex; align-items: flex-start; gap: 13px; padding: 16px; background: var(--surface); border: 1px solid var(--line-soft); border-radius: 14px; }
+.notification.is-unread { border-color: #1e548c; background: #102940; }
+.notification > div { flex: 1; min-width: 0; }
+.notification-open { display: grid; gap: 9px; padding: 8px 0 0; width: 100%; border: 0; color: var(--text-soft); background: transparent; text-align: left; font-size: 14px; line-height: 1.5; }
+.notification-open time { font-size: 11px; color: var(--muted); }
+.notification-dot { width: 8px; height: 8px; margin-top: 7px; border-radius: 50%; background: var(--blue-bright); flex-shrink: 0; }
+.conversation > header > .chat-peer-status { display: grid; gap: 5px; min-width: 0; }
+.chat-peer-status .profile-name-link { font-size: 14px; }
+.conversation > header .chat-peer-status small { color: var(--text-soft); font-size: 11px; }
+.conversation > header .chat-peer-status .is-online { color: var(--green); }
+.nav-item__badge { min-width: 22px; padding-inline: 4px; border-radius: 12px; }
+
+/* Group and page thumbnails, covers and editable categories */
+.space-cover-preview { height: 150px; border-radius: 13px; background: linear-gradient(125deg,#16456c,#152135); background-size: cover; background-position: center; display: flex; align-items: flex-end; padding: 12px; gap: 10px; }
+.space-cover-preview .secondary-button { background: #071525d9; cursor: pointer; }
+.space-avatar-edit { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.space-avatar-edit .secondary-button { cursor: pointer; }
+.space-editor small { color: var(--text-soft); font-weight: 400; line-height: 1.6; }
+.space-detail-cover { width: 100%; max-height: 240px; object-fit: cover; border-radius: 13px; margin-bottom: 16px; }
+.page-row { position: relative; flex-wrap: wrap; }
+.page-cover-thumb { width: 100%; height: 130px; object-fit: cover; border-radius: 12px; }
+.community-row__icon > .avatar { width: 100%; height: 100%; border-radius: inherit; }
+@media(max-width:700px) {
+ .composer--modern .composer__extras { justify-content: flex-start; gap: 5px; }
+ .composer--modern .composer-destination { flex: 1; min-width: 130px; }
+ .composer-attachments { grid-template-columns: minmax(0,1fr); }
+ .composer--modern .composer__toolbar .primary-button { min-height: 44px; }
+ .comments-dialog { padding: 12px; }
+ .thread-comment { margin-left: calc(var(--comment-depth) * 9px); padding: 10px; gap: 8px; }
+ .thread-comment .avatar { width: 30px; height: 30px; }
+ .comment-compose .avatar { display: none; }
+ .notification { padding: 13px; }
+ .space-avatar-edit > label { font-size: 12px; }
+ .conversation-tools { max-height: 28dvh; }
+}
+@media(max-width:400px) {
+ .mobile-header { padding-inline: 10px; }
+ .mobile-header__actions { gap: 3px; }
+ .mobile-header__actions > button { width: 34px; min-width: 34px; height: 40px; }
+ .mobile-header__actions > button:first-child { display: none; }
+ .mobile-header .brand__name { font-size: 17px; }
+}
+.page-cover-thumb { grid-column: 1 / -1; }
+@media(max-width:700px) {
+ .page-row { grid-template-columns: auto minmax(0,1fr); }
+ .page-row > .secondary-button { grid-column: 2; justify-self: start; }
+ .page-row > div { min-width: 0; }
+ .page-row p { overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+}

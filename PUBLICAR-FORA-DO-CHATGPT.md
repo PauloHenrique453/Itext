@@ -126,3 +126,14 @@ O início e o perfil têm stories de fotos/vídeos por 24 horas. Comentários do
 Para conferir após publicar, use duas contas reais: teste cada direção de seguidor, aceitar/apagar solicitação, ambos os bloqueios, fotos visíveis no perfil com posts/stories ocultos, comentário de story recebido como mensagem, edição/reação/resposta a uma mensagem específica e exclusões para si ou para todos. Repita uma resposta protegida com as chaves já existentes, sem redefini-las. Confirme que uma terceira conta não acessa mensagens alheias. A revisão declarada do criador permanece com suas permissões anteriores.
 
 Stories expiram no banco, mas os arquivos não são purgados automaticamente. Exclusão para todos substitui o corpo no banco; não revoga cópias já feitas ou arquivos já baixados. URLs assinadas de stories podem durar até 5 minutos; outras mídias, até 1 hora. Consulte o README para limites do bloqueio por conta e manutenção da franquia gratuita.
+
+
+### Comentários, notificações, presença e espaços com imagens
+
+Após as anteriores, aplique `supabase/migrations/20261018051650_comments_notifications_presence_spaces.sql`. No projeto atual essa aplicação já foi feita pelo conector. A publicação no Windows não repete migrações e não altera chaves de mensagens.
+
+A atualização inclui comentários com curtidas/respostas, sino de notificações com marcação de leitura, contador de mensagens não lidas, sinal online/offline, navegação global de avatares ao perfil, editor de publicações com documentos e links e editor de grupos/páginas com foto, capa e categoria personalizada ou Não definido. As notificações se referem a ações reais a partir da instalação da migração; não foi criada atividade histórica fictícia.
+
+Depois do deploy, teste em duas contas: curtir/responder um comentário, conferir o sino da conta destinatária, abrir a resposta pela notificação, marcar os avisos como lidos e confirmar os contadores. Teste presença com duas abas e uma queda de conexão (expiração em até 90 segundos, além do intervalo de consulta). Clique em avatares no feed, comentários e conversas para abrir o perfil correto. Confirme que curtidas privadas não aparecem no perfil para outra conta; o autor ainda pode receber avisos de curtida. Envie um PDF/áudio/vídeo e um link, confira o download após recarregar e negue o arquivo do grupo privado a uma conta não participante. Crie/edite um grupo e uma página com foto, capa, categoria nova e Não definido, confirmando que outra conta não consegue editar.
+
+O status de presença é aproximado, notificações são internas ao site e arquivos não passam por antivírus neste aplicativo. As demais proteções e limites do README continuam valendo. Nenhum plano pago foi ativado.

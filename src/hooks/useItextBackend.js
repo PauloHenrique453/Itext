@@ -71,6 +71,7 @@ export function useItextBackend() {
       }
       return result
     },
+    saveSpace: (kind,id,payload) => run(() => itextApi.saveSpace(kind,id,payload)),
     createCommunity: (payload) => run(() => itextApi.createCommunity(payload)),
     createPage: (payload) => run(() => itextApi.createPage(payload)),
     uploadMedia: (file) => itextApi.uploadMedia(file),

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, CheckCheck, Copy, MoreHorizontal, Reply, Search, Send, ShieldBan, Smile, UsersRound, X } from 'lucide-react'
+import { useOnline } from '../hooks/useActivity.js'
+import { ProfileName } from '../components/ProfileNavigation.jsx'
 import ViewHeader from '../components/ViewHeader.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Modal from '../components/Modal.jsx'
@@ -17,6 +19,7 @@ const reactionOptions=['❤️','👍','😂','🎉','🙏','😮']
 export default function MessagesView({user,onNotify,initialPerson,onFindPeople,onConfigureSecurity,onSocialChange=()=>{}}) {
   const [people,setPeople]=useState([])
   const [person,setPerson]=useState(null)
+  const online=useOnline([...people.map(person=>person.id),...(person?[person.id]:[])])
   const [review,setReview]=useState(false)
   const [messages,setMessages]=useState([])
   const [references,setReferences]=useState([])
@@ -240,11 +243,11 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
       <button className="chat-find-people secondary-button" onClick={onFindPeople}><UsersRound size={17}/>Encontrar pessoas</button>
       <div>{session?.isOwner?<button className={review?'is-active':''} onClick={()=>open(null,true)}>Revisar todas as mensagens</button>:null}{orderedPeople.map(entry=>{
         const summary=inbox.find(row=>row.partner_id===entry.id),ownBlock=blocks.find(row=>row.blocked_id===entry.id)
-        return <button className={person?.id===entry.id?'is-active':''} key={entry.id} onClick={()=>open(entry)}><Avatar src={entry.avatar_url} alt=""/><span><strong>{entry.name}</strong><small>{ownBlock?ownBlock.scope==='all'?'Bloqueado de tudo':'Bloqueado no chat':summary?.unknown?'Solicitação de mensagem':entry.ready?'Proteção adicional disponível':'Conversa padrão'}</small></span>{summary?.unread?<b aria-label="Mensagens não lidas">{summary.unread}</b>:null}</button>
+        return <button className={person?.id===entry.id?'is-active':''} key={entry.id} onClick={()=>open(entry)}><Avatar userId={entry.id} online={online?.some(row=>row.user_id===entry.id&&row.online)} src={entry.avatar_url} alt=""/><span><strong>{entry.name}</strong><small>{ownBlock?ownBlock.scope==='all'?'Bloqueado de tudo':'Bloqueado no chat':summary?.unknown?'Solicitação de mensagem':entry.ready?'Proteção adicional disponível':'Conversa padrão'}</small></span>{summary?.unread?<b aria-label="Mensagens não lidas">{summary.unread}</b>:null}</button>
       })}</div>
       {!orderedPeople.length?<p className="empty-inline">{tab==='unknown'?'Nenhuma mensagem de desconhecidos.':tab==='blocked'?'Você não bloqueou contatos.':'Suas conversas aparecerão aqui. Use Encontrar pessoas para começar.'}</p>:null}
     </aside><section className="conversation">{person||review?<>
-      <header><button className="icon-button chat-back" onClick={()=>open(null)} aria-label="Voltar para conversas"><ArrowLeft size={20}/></button>{person?<Avatar src={person.avatar_url} alt=""/>:null}<strong>{review?'Todas as conversas — acesso declarado do criador':person.name}</strong>{person?<button className="icon-button conversation-options" aria-label="Opções da conversa" onClick={()=>setDialog('conversation')}><MoreHorizontal size={22}/></button>:null}</header>
+      <header><button className="icon-button chat-back" onClick={()=>open(null)} aria-label="Voltar para conversas"><ArrowLeft size={20}/></button>{person?<Avatar userId={person.id} online={online?.some(row=>row.user_id===person.id&&row.online)} src={person.avatar_url} alt=""/>:null}<div className="chat-peer-status">{review?<strong>Todas as conversas — acesso declarado do criador</strong>:<><ProfileName id={person.id}>{person.name}</ProfileName><small className={online?.some(row=>row.user_id===person.id&&row.online)?'is-online':''}>{online===null?'Status indisponível':online.some(row=>row.user_id===person.id&&row.online)?'Online':'Offline'}</small></>}</div>{person?<button className="icon-button conversation-options" aria-label="Opções da conversa" onClick={()=>setDialog('conversation')}><MoreHorizontal size={22}/></button>:null}</header>
       <div className="conversation-tools"><label className="chat-message-search"><Search size={17}/><input aria-label="Buscar nesta conversa" placeholder="Buscar nesta conversa" value={messageSearch} onChange={event=>setMessageSearch(event.target.value)}/></label>{!review&&isUnknown?<div className="message-request"><strong>Mensagem de desconhecido</strong><p>Vocês não se seguem. Aceite para mover esta conversa para Conversas.</p><div><button className="primary-button" disabled={actionBusy} onClick={()=>conversationAction('accept')}>Aceitar e conversar</button><button className="secondary-button" onClick={()=>setDialog('clear')}>Apagar</button><button className="secondary-button" onClick={()=>showBlock(true)}>Bloquear e apagar</button></div></div>:null}</div>
       <div className="conversation__messages" ref={scrollArea} onScroll={()=>{const area=scrollArea.current;setAtBottom(area.scrollHeight-area.scrollTop-area.clientHeight<80)}}>{hasOlder?<button className="secondary-button" disabled={loading} onClick={older}>Carregar anteriores</button>:null}{loading&&!messages.length?<p>Carregando mensagens…</p>:!messages.length?<p className="empty-inline">Nenhuma mensagem nesta conversa.</p>:null}
         {messageSearch&&!visibleMessages.length?<p className="empty-inline">Nenhuma mensagem encontrada no histórico carregado.</p>:null}

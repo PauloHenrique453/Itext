@@ -1,5 +1,6 @@
 import { independent } from '../services/auth.js'
 import {
+  Bell,
   Compass,
   Heart,
   Home,
@@ -23,13 +24,14 @@ export const navItems = [
   { id: 'shorts', label: 'Ishort', icon: SquarePlay },
   { id: 'dating', label: 'Conexões', icon: Heart },
   ...(independent ? [{ id: 'messages', label: 'Mensagens', icon: MessageCircle }] : []),
+  { id: 'notifications', label: 'Notificações', icon: Bell },
   { id: 'communities', label: 'Comunidades', icon: UsersRound },
   { id: 'pages', label: 'Páginas', icon: PanelsTopLeft },
   { id: 'profile', label: 'Perfil', icon: UserRound },
   { id: 'settings', label: 'Configurações', icon: Settings },
 ]
 
-export default function Sidebar({ activeView, onNavigate, onCreate, user, unread=0 }) {
+export default function Sidebar({ activeView, onNavigate, onCreate, user, unread=0, notifications=0 }) {
   return (
     <aside className="sidebar">
       <div className="sidebar__top">
@@ -47,7 +49,7 @@ export default function Sidebar({ activeView, onNavigate, onCreate, user, unread
             >
               <Icon size={21} strokeWidth={activeView === id ? 2.4 : 1.8} />
               <span>{label}</span>
-              {(id === 'messages' ? unread : badge) ? <span className="nav-item__badge">{id === 'messages' ? unread : badge}</span> : null}
+              {(id === 'messages' ? unread : id === 'notifications' ? notifications : badge) ? <span className="nav-item__badge">{(id === 'messages'?unread:notifications)>99?'99+':id === 'messages'?unread:notifications}</span> : null}
             </button>
           ))}
         </nav>
@@ -58,7 +60,7 @@ export default function Sidebar({ activeView, onNavigate, onCreate, user, unread
       </div>
 
       <button className="user-menu" onClick={() => onNavigate('profile')} aria-label="Abrir meu perfil">
-        <Avatar src={user.avatar} alt={user.name} />
+        <Avatar userId={user.id} src={user.avatar} alt={user.name} />
         <span className="user-menu__copy">
           <strong>{user.name}</strong>
           <small>{user.handle}</small>
