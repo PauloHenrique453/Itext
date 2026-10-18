@@ -5,15 +5,13 @@ import Avatar from '../components/Avatar.jsx'
 import { supabase, signInWithGoogle } from '../services/auth.js'
 import { mergeMessages, messagesClient, messageWasRead } from '../services/messaging.js'
 import { privacyClient } from '../services/chatPrivacy.js'
-import { unlockedChatSession, lockChatSession } from '../services/chatSession.js'
-import { recoveryCode } from '../services/chatCrypto.js'
-import { deviceSecurity } from '../services/deviceSecurity.js'
+import { unlockedChatSession } from '../services/chatSession.js'
 
 const api = supabase ? messagesClient(supabase) : null
 const privacy = supabase ? privacyClient(supabase) : null
 const notice = 'As mensagens são criptografadas para os participantes e para o criador do Itext, que também pode ler as conversas.'
 
-export default function MessagesView({ user, onNotify, initialPerson, onFindPeople }) {
+export default function MessagesView({ user, onNotify, initialPerson, onFindPeople, onConfigureSecurity }) {
   const [people, setPeople] = useState([])
   const [person, setPerson] = useState(null)
   const [review, setReview] = useState(false)
@@ -27,10 +25,6 @@ export default function MessagesView({ user, onNotify, initialPerson, onFindPeop
   const [hasOlder, setHasOlder] = useState(false)
   const [privacyState, setPrivacyState] = useState(null)
   const [session, setSession] = useState(() => unlockedChatSession(user.id))
-  const [code, setCode] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [rememberDevice,setRememberDevice]=useState(false)
-  const [busy, setBusy] = useState(false)
   const [retry, setRetry] = useState(0)
   const [inbox, setInbox] = useState([])
   const [receipts, setReceipts] = useState([])
@@ -129,26 +123,6 @@ export default function MessagesView({ user, onNotify, initialPerson, onFindPeop
     setMessageSearch(''); setAtBottom(true); lastMarked.current = ''
     setPerson(next); setReview(asCreator); setMessages([]); setDraft(drafts.current.get(next?.id) || ''); setError(''); pendingSend.current = pendingSends.current.get(next?.id) || null
   }
-  async function lock() {
-    try{await deviceSecurity.forget(user.id)}catch(issue){setError(issue.message);return}
-    active.current = null
-    lockChatSession(); drafts.current.clear(); pendingSends.current.clear()
-    setSession(null); setMessages([]); setPerson(null); setReview(false); setDraft(''); setCode(''); pendingSend.current = null
-  }
-  async function unlock(event) {
-    event.preventDefault()
-    setBusy(true); setError('')
-    try {
-      const unlocked = privacyState.vault ? await privacy.unlock(privacyState, code,{remember:rememberDevice}) : await privacy.activate(privacyState, code,{remember:rememberDevice})
-      setCode(''); setSaved(false)
-      setPrivacyState(await privacy.state())
-      setSession(unlocked)
-    } catch (issue) {
-      setError(issue.message)
-      // A successful registration followed by a lost reply must be unlocked, never overwritten.
-      try { setPrivacyState(await privacy.state()) } catch { /* Original error remains visible. */ }
-    } finally { setBusy(false) }
-  }
   async function older() {
     if ((!person && !review) || !messages.length || loading) return
     const target = active.current
@@ -184,12 +158,7 @@ export default function MessagesView({ user, onNotify, initialPerson, onFindPeop
   if (!user.authenticated) return <main className="feature-view"><ViewHeader title="Mensagens" /><div className="profile-empty"><h2>Entre para conversar.</h2><button className="primary-button" onClick={() => signInWithGoogle().catch((issue) => onNotify(issue.message))}>Entrar com Google</button></div></main>
   const errors = error ? <p className="chat-error" role="alert">{error}</p> : null
   if (!session || session.id !== user.id) return <main className="feature-view"><ViewHeader title="Mensagens protegidas" />{errors}<section className="chat-security">
-    <h2>Privacidade das conversas</h2><p>{notice}</p><p>Não é criptografia exclusiva entre os participantes. Publicações, perfis e arquivos seguem suas permissões de acesso; esta criptografia adicional protege o texto das mensagens novas.</p>
-    {!privacyState ? <><p>Aguardando configuração das mensagens…</p><button className="secondary-button" onClick={() => setRetry((value) => value + 1)}>Verificar novamente</button></> : !privacyState.ownerReady && !privacyState.isOwner ? <p>O criador precisa ativar sua chave antes de liberar as conversas.</p> : <form onSubmit={unlock}>
-      {privacyState.vault ? <><h3>Desbloquear mensagens</h3><label htmlFor="chat-code">Seu código de recuperação</label><input id="chat-code" type="password" autoComplete="off" spellCheck={false} value={code} onChange={(event) => setCode(event.target.value)} required /><p>Seu login Google não substitui esse código. Ele não será enviado ao servidor.</p></> : <><h3>Ativar mensagens criptografadas{privacyState.isOwner ? ' e acesso do criador' : ''}</h3><button type="button" className="secondary-button" disabled={busy} onClick={() => { setCode(recoveryCode()); setSaved(false) }}>Gerar meu código de recuperação</button>{code ? <><label htmlFor="chat-code">Guarde em um gerenciador de senhas ou local seguro</label><input id="chat-code" className="recovery-code" readOnly value={code} onFocus={(event) => event.target.select()} /><p>O código abre suas mensagens em outros aparelhos. Não envie a ninguém. Perder o código impede recuperar sua chave. Não há redefinição automática.</p><label className="chat-consent"><input type="checkbox" checked={saved} onChange={(event) => setSaved(event.target.checked)} />Guardei meu código e entendi que o criador pode ler todas as conversas.</label></> : null}</>}
-<label className="chat-consent"><input type="checkbox" checked={rememberDevice} onChange={event=>setRememberDevice(event.target.checked)}/>Lembrar neste aparelho</label><p className="form-note">Use apenas em um aparelho seu. O acesso fica protegido no navegador; quem usar sua sessão desbloqueada poderá abrir as conversas. Você pode exigir um PIN ou senha em Configurações. Guarde o código para aparelhos novos.</p>
-      <button className="primary-button" disabled={busy || !code || (!privacyState.vault && !saved)}>{busy ? 'Processando…' : privacyState.vault ? 'Desbloquear' : 'Ativar mensagens'}</button>
-    </form>}
+    {!privacyState?<><p role="status">Abrindo mensagens neste aparelho…</p><button className="secondary-button" onClick={()=>setRetry(value=>value+1)}>Verificar novamente</button></>:!privacyState.ownerReady&&!privacyState.isOwner?<p>O criador precisa ativar as mensagens primeiro.</p>:<><h2>Preparar acesso às mensagens</h2><p>Configure o acesso uma vez neste aparelho. Depois, as conversas abrem sem pedir o código.</p><button className="primary-button" onClick={onConfigureSecurity}>Configurar acesso às mensagens</button></>}
   </section></main>
   const receipt = receipts.find((row) => row.user_id === person?.id && row.partner_id === session.id)
   const currentPerson = people.find((entry) => entry.id === person?.id) || person
@@ -198,7 +167,7 @@ export default function MessagesView({ user, onNotify, initialPerson, onFindPeop
   const name = (id) => id === session.id ? 'Você' : people.find((entry) => entry.id === id)?.name || id
   return <main className="feature-view messages-view" data-has-drafts={draft.trim() || [...drafts.current.values()].some((value) => value.trim()) ? "true" : undefined}>
     <ViewHeader title={review ? 'Revisão do criador' : 'Mensagens'} subtitle={status === 'SUBSCRIBED' ? 'Conectado ao chat em tempo real.' : status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED' ? 'Conexão interrompida. Reconectando…' : 'Conectando ao chat…'} />
-    <div className="chat-privacy-notice"><details><summary>Privacidade das mensagens</summary><p>{notice}</p></details><button className="secondary-button" onClick={lock}>Bloquear mensagens</button></div>{errors}
+    <div className="chat-privacy-notice"><details><summary>Privacidade das mensagens</summary><p>{notice}</p></details><button className="secondary-button" onClick={onConfigureSecurity}>Configurações das mensagens</button></div>{errors}
     <div className={`messages-layout ${person || review ? 'has-conversation' : ''}`}><aside className="chat-list">
       <label><Search size={18} /><input placeholder="Buscar pessoas" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
       <button className="chat-find-people secondary-button" onClick={onFindPeople}><UsersRound size={17}/>Encontrar pessoas</button><div>{session.isOwner ? <button className={review ? 'is-active' : ''} onClick={() => open(null, true)}>Revisar todas as mensagens</button> : null}
