@@ -24,6 +24,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/migrations/20261018040725_optional_chat_protection.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018044842_stories_requests_and_message_actions.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018051650_comments_notifications_presence_spaces.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261018054035_media_viewer_themes_and_story_formats.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -607,5 +608,68 @@ test('private comments and message notifications remain hidden after blocks, con
   assert.equal((await db.query('select * from public.itext_notifications')).rows.length,1)
   await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
   assert.equal((await db.query('select * from public.itext_notifications')).rows.length,0)
+ }finally{await db.close()}
+})
+
+test('single-request post likes are idempotent, return real counts and retain block/private-group authorization',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const post=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Publicação') returning id",[ONE])).rows[0].id
+  const group=(await db.query("select public.itext_create_group('Restrito','','private','request') as id")).rows[0].id
+  const secret=(await db.query("insert into public.itext_posts(author_id,text,group_id) values($1,'Grupo',$2) returning id",[ONE,group])).rows[0].id
+  await as(db,TWO)
+  for(let i=0;i<2;i++)assert.deepEqual((await db.query('select * from public.itext_set_post_like($1,true)',[post])).rows,[{likes:1,liked:true}])
+  await assert.rejects(db.query('select * from public.itext_set_post_like($1,true)',[secret]))
+  await as(db,ONE)
+  assert.equal((await db.query("select count(*)::int as n from public.itext_notifications where kind='post_like' and post_id=$1",[post])).rows[0].n,1)
+  await as(db,TWO)
+  for(let i=0;i<2;i++)assert.deepEqual((await db.query('select * from public.itext_set_post_like($1,false)',[post])).rows,[{likes:0,liked:false}])
+  await as(db,ONE);await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
+  await as(db,TWO);await assert.rejects(db.query('select * from public.itext_set_post_like($1,true)',[post]))
+  await as(db);await assert.rejects(db.query('select * from public.itext_set_post_like($1,true)',[post]))
+ }finally{await db.close()}
+})
+
+test('photo viewer exposes only images on a full block and never exposes private-group captions or media',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  await db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1),('itext-media',$2)",[ONE+'/photo.jpg',ONE+'/movie.mp4'])
+  const media=[{type:'image',url:'itext-media:'+ONE+'/photo.jpg',storagePath:ONE+'/photo.jpg'},{type:'video',url:'itext-media:'+ONE+'/movie.mp4',storagePath:ONE+'/movie.mp4'}]
+  const post=(await db.query("insert into public.itext_posts(author_id,text,media) values($1,'Hidden caption',$2) returning id",[ONE,JSON.stringify(media)])).rows[0].id
+  const group=(await db.query("select public.itext_create_group('Private','','private','request') as id")).rows[0].id
+  const privatePost=(await db.query("insert into public.itext_posts(author_id,text,media,group_id) values($1,'Hidden group',$2,$3) returning id",[ONE,JSON.stringify(media),group])).rows[0].id
+  await as(db,TWO)
+  const open=(await db.query('select public.itext_photo_post($1) as photo',[post])).rows[0].photo
+  assert.equal(open.can_interact,true);assert.equal(open.media.length,1);assert.equal(open.media[0].type,'image');assert.ok(!('text' in open))
+  assert.equal((await db.query('select public.itext_photo_post($1) as photo',[privatePost])).rows[0].photo,null)
+  await as(db,ONE);await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
+  await as(db,TWO)
+  const blocked=(await db.query('select public.itext_photo_post($1) as photo',[post])).rows[0].photo
+  assert.equal(blocked.can_interact,false);assert.equal(blocked.likes,0);assert.equal(blocked.liked,false);assert.equal(blocked.media.length,1)
+  assert.ok(!JSON.stringify(blocked).includes('Hidden caption'));assert.ok(!JSON.stringify(blocked).includes('movie.mp4'))
+  await as(db);await assert.rejects(db.query('select public.itext_photo_post($1)',[post]))
+ }finally{await db.close()}
+})
+
+test('text and audio stories validate content, ownership, fonts, colors and server expiration; appearance remains private',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const story=(await db.query("insert into public.itext_stories(author_id,media_type,text_content,background_color,font_style) values($1,'text','Um texto','#e5e7eb','serif') returning id",[ONE])).rows[0].id
+  for(const [text,color,font] of [['','#102a43','classic'],['a','red','classic'],['a','#102a43','unknown']])await assert.rejects(db.query("insert into public.itext_stories(author_id,media_type,text_content,background_color,font_style) values($1,'text',$2,$3,$4)",[ONE,text,color,font]))
+  const path=ONE+'/story.mp3';await db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1)",[path])
+  await db.query("insert into public.itext_stories(author_id,media_path,media_type,text_content) values($1,$2,'audio','Áudio com texto')",[ONE,path])
+  await assert.rejects(db.query("insert into public.itext_stories(author_id,media_path,media_type) values($1,$2,'audio')",[ONE,TWO+'/other.mp3']))
+  for(const choice of ['common','white','graphite','black'])await db.query('update public.chat_profiles set settings=$1 where id=$2',[JSON.stringify({appearance:choice}),ONE])
+  await assert.rejects(db.query('update public.chat_profiles set settings=$1 where id=$2',[JSON.stringify({appearance:'invalid'}),ONE]))
+  await as(db,TWO)
+  assert.equal((await db.query('select media_type,text_content from public.itext_stories where id=$1',[story])).rows[0].text_content,'Um texto')
+  await db.query("insert into public.direct_messages(sender_id,recipient_id,body,story_id) values($1,$2,'Resposta de texto',$3)",[TWO,ONE,story])
+  assert.ok(!('settings' in (await db.query('select * from public.itext_public_profiles where id=$1',[ONE])).rows[0]))
+  await db.exec('reset role');await db.query("update public.itext_stories set created_at=now()-interval '25 hours',expires_at=now()-interval '1 hour' where id=$1",[story])
+  await as(db,TWO);assert.equal((await db.query('select id from public.itext_stories where id=$1',[story])).rows.length,0)
+  await db.exec('reset role');assert.equal(Number((await db.query("select file_size_limit from storage.buckets where id='itext-media'")).rows[0].file_size_limit),50000000)
  }finally{await db.close()}
 })

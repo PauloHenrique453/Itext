@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
@@ -31,5 +32,6 @@ export default function Modal({title,children,onClose,size='md'}) {
       if(previous?.isConnected)previous.focus()
     }
   },[])
-  return <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&dialogs.at(-1)===root.current)onClose()}}><section ref={root} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}><header><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20}/></button></header>{children}</section></div>
+  const content = <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&dialogs.at(-1)===root.current)onClose()}}><section ref={root} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}><header><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20}/></button></header>{children}</section></div>
+  return typeof document==='undefined'?content:createPortal(content,document.body)
 }

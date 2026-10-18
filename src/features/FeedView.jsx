@@ -10,6 +10,7 @@ import Stories from './Stories.jsx'
 import PostMedia,{ PostLinks } from '../components/PostMedia.jsx'
 import { ProfileName } from '../components/ProfileNavigation.jsx'
 import { attachmentAccept,safeLink } from '../services/content.js'
+import usePostLike from '../hooks/usePostLike.js'
 import CommentsDialog from './CommentsDialog.jsx'
 
 const starterCode = { html: '', css: '', js: '' }
@@ -104,7 +105,7 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
         <button className="primary-button" onClick={publish} disabled={!user.authenticated || isPublishing || uploading || (!text.trim() && !media.length && (mode !== 'code' || !hasCode))}>{uploading ? 'Enviando mídia…' : isPublishing ? 'Publicando…' : 'Publicar'}</button>
       </div>
     </div>
-  <p className="composer-count">{text.length.toLocaleString('pt-BR')} / 10.000 · {media.length} / 6 anexos</p></section>
+  <p className="composer-count">{text.length.toLocaleString('pt-BR')} / 10.000 · {media.length} / 6 anexos · Vídeos até 50 MB, sem limite de duração. Maiores: use um link de vídeo.</p></section>
 }
 
 function CodePreview({ code, onRun }) {
@@ -113,8 +114,7 @@ function CodePreview({ code, onRun }) {
 }
 
 export function PostCard({ post, user, onToggleLike, onRunCode, onTag, onNotify, onEditPost, onDeletePost, onUploadMedia, onChanged=()=>{}, initialCommentId=null }) {
-  const [liking, setLiking] = useState(false)
-  async function like() { if (liking) return; setLiking(true); try { await onToggleLike(post.id) } catch(issue){onNotify(issue.message)} finally { setLiking(false) } }
+  const reaction=usePostLike(post,onToggleLike,onNotify)
   const [showComments, setShowComments] = useState(!!initialCommentId)
   const [localCode,setLocalCode]=useState(null)
   async function share() {
@@ -130,9 +130,9 @@ export function PostCard({ post, user, onToggleLike, onRunCode, onTag, onNotify,
     {post.text ? <p className="post-card__text">{post.text}</p> : null}
     {post.reason ? <p className="feed-reason"><Sparkles size={12} /> Você vê isto porque {post.reason}.</p> : null}
     {post.tags?.length ? <div className="post-tags">{post.tags.map((tag) => <button key={tag} onClick={() => onTag(tag)}>{tag}</button>)}</div> : null}
-    <PostLinks text={post.text}/><PostMedia media={post.media} image={post.image}/>
+    <PostLinks text={post.text}/><PostMedia postId={post.id} media={post.media} image={post.image}/>
     {post.code ? <CodePreview code={post.code} onRun={onRunCode||setLocalCode} /> : null}
-    <div className="post-actions"><button aria-label="Abrir comentários" onClick={() => setShowComments((value) => !value)} className={showComments ? 'is-active' : ''}><MessageCircle size={18} /><span>{post.comments}</span></button><button aria-label="Compartilhar publicação" onClick={share}><Share2 size={18} /></button><button disabled={!user.authenticated || liking} aria-pressed={post.liked} aria-label={post.liked ? 'Remover curtida' : 'Curtir publicação'} className={post.liked ? 'is-liked' : ''} onClick={like}><Heart size={19} fill={post.liked ? 'currentColor' : 'none'} /><span>{post.likes}</span></button></div>
+    <div className="post-actions"><button aria-label="Abrir comentários" onClick={() => setShowComments(true)} className={showComments ? 'is-active' : ''}><MessageCircle size={18} /><span>{post.comments}</span></button><button aria-label="Compartilhar publicação" onClick={share}><Share2 size={18} /></button><button disabled={!user.authenticated || reaction.pending} aria-pressed={reaction.liked} aria-label={reaction.liked ? 'Remover curtida' : 'Curtir publicação'} className={reaction.liked ? 'is-liked' : ''} onClick={reaction.toggle}><Heart size={19} fill={reaction.liked ? 'currentColor' : 'none'} /><span>{reaction.likes}</span></button></div>
     {showComments?<CommentsDialog postId={post.id} user={user} onClose={()=>setShowComments(false)} onChanged={onChanged} focusComment={initialCommentId}/>:null}
     {localCode?<Modal title="Executar código" onClose={()=>setLocalCode(null)} size="lg"><div className="preview-shell"><iframe title="Código da publicação" sandbox="allow-scripts" srcDoc={`<!doctype html><style>${localCode.css||''}</style>${localCode.html||''}<script>${localCode.js||''}</script>`}/></div></Modal>:null}
   </div></article>

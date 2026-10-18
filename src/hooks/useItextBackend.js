@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { initializeAuth, independent, supabase } from '../services/auth.js'
 import { itextApi } from '../services/itextApi.js'
 
 export function useItextBackend() {
   // Identity is supplied by the server; URL parameters never select a profile.
   const userId = ''
+  const likeResults=useRef(new Map())
   const [state, setState] = useState({ user: null, posts: [], ownPosts: [], communities: [], pages: [], profiles: [], dating: null, status: null })
   const [feedMode, setFeedMode] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -12,13 +13,15 @@ export function useItextBackend() {
   const [refreshToken, setRefreshToken] = useState(0)
 
   const refresh = useCallback(async () => {
+    const requestedAt=Date.now()
     try {
       await initializeAuth()
       const [bootstrap, status] = await Promise.all([itextApi.bootstrap(userId), itextApi.status()])
       const selectedMode = feedMode || bootstrap.user.settings?.feed?.mode || 'personalized'
       const [feed, ownFeed] = await Promise.all([itextApi.feed(userId, selectedMode), itextApi.ownPosts()])
       if (!feedMode) setFeedMode(selectedMode)
-      setState((current) => ({ ...current, user: bootstrap.user, posts: feed.posts, ownPosts: ownFeed.posts, communities: bootstrap.communities, pages: bootstrap.pages, profiles: bootstrap.profiles || [], status }))
+      function mergeLike(post){const changed=likeResults.current.get(post.id);return changed&&changed.at>=requestedAt?{...post,...changed.value}:post}
+      setState((current) => ({ ...current, user: bootstrap.user, posts: feed.posts.map(mergeLike), ownPosts: ownFeed.posts.map(mergeLike), communities: bootstrap.communities, pages: bootstrap.pages, profiles: bootstrap.profiles || [], status }))
       setError('')
     } catch (requestError) {
       setError(requestError.message || 'Servidor Itext indisponível.')
@@ -39,6 +42,12 @@ export function useItextBackend() {
     return () => window.clearInterval(polling)
   }, [])
 
+  useEffect(()=>{
+    const update=event=>{likeResults.current.set(event.detail.id,{at:Date.now(),value:{likes:event.detail.likes,liked:event.detail.liked}});setState(current=>({...current,...Object.fromEntries(['posts','ownPosts'].map(key=>[key,current[key].map(post=>post.id===event.detail.id?{...post,likes:event.detail.likes,liked:event.detail.liked}:post)]))}))}
+    window.addEventListener('itext:post-like',update)
+    return()=>window.removeEventListener('itext:post-like',update)
+  },[])
+
   const run = useCallback(async (operation) => {
     try {
       const result = await operation()
@@ -58,7 +67,7 @@ export function useItextBackend() {
     publishPost: (payload) => run(() => itextApi.createPost({ ...payload, userId: activeUserId })),
     editPost: (id,payload) => run(() => itextApi.editPost(id,payload)),
     deletePost: (id) => run(() => itextApi.deletePost(id)),
-    toggleLike: (postId) => run(() => itextApi.toggleLike(postId, activeUserId)),
+    toggleLike: (postId,desired) => itextApi.setPostLike(postId,desired),
     addComment: (postId, text) => run(() => itextApi.addComment(postId, activeUserId, text)),
     savePreferences: (interests, onboardingComplete) => run(() => itextApi.savePreferences(activeUserId, interests, onboardingComplete)),
     saveSettings: async (settings) => {
