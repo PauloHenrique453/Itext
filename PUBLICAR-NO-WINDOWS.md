@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3e48a9f78746c856a3b47ae5a9733bda114a959a.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7f5d269930782a953a5f06c6cfad0f8e5defac66.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3e48a9f78746c856a3b47ae5a9733bda114a959a.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7f5d269930782a953a5f06c6cfad0f8e5defac66.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -226,3 +226,17 @@ Após aparecer **Deploy complete!**, confira:
 4. Troque o tema em Configurações, salve e recarregue para confirmar que permaneceu salvo.
 5. Publique um story de texto, outro de áudio e confira a reprodução. Teste um vídeo compatível abaixo de 50 MB e um link completo público das plataformas.
 6. Confira celular na vertical/horizontal, tablet e computador; em TV, use um navegador atualizado e confira foco/rolagem pelo controle ou teclado. O Itext continua sendo um site, sem aplicativo nativo de Smart TV.
+
+
+## Rodapé do story e menu lateral recolhível
+
+O bloco **Atualizar o Itext já publicado** acima agora inclui também esta revisão. Execute o bloco completo para baixar o código novo antes do deploy.
+
+- Tocar no círculo ou foto de story abre o story publicado. O rodapé tem Comentar, coração com contador e Compartilhar à direita; a mídia rola separadamente.
+- O comentário continua sendo uma mensagem privada para o dono do story, respeitando bloqueios e a proteção escolhida.
+- Compartilhar abre a opção nativa do aparelho ou copia o link do story. O link abre o story depois de entrar na conta; expiração e permissões continuam valendo.
+- Ao lado do logotipo, Recolher menu lateral deixa apenas os ícones e amplia o conteúdo. Expandir restaura os nomes. A escolha permanece neste navegador; os contadores de mensagens/notificações continuam visíveis.
+
+Não há SQL novo para executar. **56 testes**, build, SSR e verificações estáticas passaram. A sessão não teve Browser disponível para validar cliques e aparência em aparelhos reais.
+
+Depois de **Deploy complete!**, abra o site e aceite a atualização (ou use Ctrl+F5). Confira: clicar na foto do círculo de story abre a mídia; os controles inferiores permitem comentar/curtir/compartilhar; o menu recolhe e expande sem perder navegação e conserva a escolha ao recarregar. No celular, confira os controles com o teclado aberto.
