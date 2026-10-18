@@ -55,7 +55,7 @@ function timeAgo(value) {
   return minutes<60?`${minutes} min`:minutes<1440?`${Math.floor(minutes/60)}h`:`${Math.floor(minutes/1440)}d`
 }
 async function profile(row,authenticated=false,following=[],counts={}) {
-  return {id:row.id,name:row.name,handle:`@membro-${row.id.slice(0,8)}`,avatar:await displayUrl(row.avatar_url),bio:row.bio||'',coverUrl:await displayUrl(row.cover_url),themeColor:row.theme_color||'blue',interests:row.interests||[],following,followersCount:counts.followers||0,followingCount:counts.following||0,settings:{...DEFAULT_SETTINGS,...row.settings},onboardingComplete:Boolean(row.onboarding_complete),authenticated,createdAt:row.created_at}
+  return {id:row.id,name:row.name,handle:`@membro-${row.id.slice(0,8)}`,avatar:await displayUrl(row.avatar_url),bio:row.bio||'',coverUrl:await displayUrl(row.cover_url),themeColor:row.theme_color||'blue',interests:row.interests||[],following,likesPublic:row.likes_public===true,followersCount:counts.followers||0,followingCount:counts.following||0,settings:{...DEFAULT_SETTINGS,...row.settings},onboardingComplete:Boolean(row.onboarding_complete),authenticated,createdAt:row.created_at}
 }
 async function profiles() {
   const rows=await result(supabase.from('itext_public_profiles').select('*').order('created_at',{ascending:false}).limit(100))
@@ -145,6 +145,15 @@ async function dating() {
   return {profile:{bio:own.bio,birthDate:own.birth_date,city:own.city,latitude:own.latitude,longitude:own.longitude,interests:own.interests,photos:await Promise.all(own.photos.map(displayUrl)),lookingFor:own.looking_for,discoveryEnabled:own.discovery_enabled},candidates:await Promise.all(cards.filter((row)=>!row.swiped).map(asCard)),matches:await Promise.all(cards.filter((row)=>row.matched).map(asCard))}
 }
 export const socialApi={
+  async likedPosts(profileId,after=null) {
+    await identity()
+    const visible=await result(supabase.rpc('itext_likes_visible',{profile_id:profileId}))
+    if(!visible)return {visible:false,posts:[],hasMore:false,cursor:null}
+    const rows=await result(supabase.rpc('itext_liked_posts',{profile_id:profileId,after_id:after}))
+    const authors=rows.length?await result(supabase.from('itext_public_profiles').select('id,name').in('id',[...new Set(rows.map((row)=>row.author_id))])):[]
+    const posts=await Promise.all(rows.map(async(row)=>({id:row.id,text:row.text,author:authors.find((entry)=>entry.id===row.author_id)?.name||'Membro do Itext',createdAt:row.created_at,hasCode:!!row.code,media:await Promise.all((row.media||[]).map(async(item)=>({...item,url:await displayUrl(item.url)})))})))
+    return {visible:true,posts,hasMore:rows.length===40,cursor:rows.at(-1)?.id||null}
+  },
   async people({query='',after=null,relation='all'}={}) {
     await identity()
     const rows=await result(supabase.rpc('itext_people',{search_query:query.trim().slice(0,80),after_id:after,relation}))
@@ -166,7 +175,7 @@ export const socialApi={
   toggleLike:(id)=>toggle('itext_likes',{post_id:id,user_id:'@me'}),
   async addComment(id,_uid,text) { const user=await identity(); return result(supabase.from('itext_comments').insert({post_id:id,author_id:user.id,text:text.trim()})) },
   async savePreferences(_uid,interests,onboardingComplete=true) { const user=await identity(); return result(supabase.from('chat_profiles').update({interests,onboarding_complete:onboardingComplete}).eq('id',user.id)) },
-  async saveSettings(_uid,settings) { const user=await identity(); return result(supabase.from('chat_profiles').update({settings:{feed:{mode:settings.feed.mode}}}).eq('id',user.id)) },
+  async saveSettings(_uid,settings) { const user=await identity(); return result(supabase.from('chat_profiles').update({settings:{feed:{mode:settings.feed.mode}},likes_public:settings.likesPublic===true}).eq('id',user.id)) },
   async saveProfile(_uid,payload) { const user=await identity(); if(!payload.name?.trim()||payload.name.trim().length>80||String(payload.bio||'').length>280)throw new Error('Confira o nome e a biografia do perfil.'); return result(supabase.from('chat_profiles').update({name:payload.name.trim(),bio:payload.bio,avatar_url:storedUrl(payload.avatar),cover_url:storedUrl(payload.coverUrl),theme_color:payload.themeColor}).eq('id',user.id)) },
   async createCommunity(payload) {
     const id=await result(supabase.rpc('itext_create_group',{group_name:payload.name,group_description:payload.description||'',group_visibility:payload.visibility||'public',group_join_policy:payload.joinPolicy||'open'}))

@@ -20,6 +20,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/creator-privacy.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261017192931_restrict_itext_api_privileges.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261017223908_improve_social_and_chat.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261018022252_profile_likes_privacy.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -214,5 +215,41 @@ test('read receipts require the actual recipient and unread counts stay private 
   await as(db)
   for(const name of ['itext_chat_inbox','itext_conversation_reads'])await assert.rejects(db.query(`select * from public.${name}`))
   await assert.rejects(db.query('select public.itext_mark_message_read($1)',[mids[2]]))
+ }finally{await db.close()}
+})
+
+test('hidden likes conceal identities and profile lists through the API while real post counts remain accurate',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const post=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Publicação') returning id",[ONE])).rows[0].id
+  const gid=(await db.query("select public.itext_create_group('Privado','','unlisted','open') as id")).rows[0].id
+  const secret=(await db.query("insert into public.itext_posts(author_id,text,group_id) values($1,'Só grupo',$2) returning id",[ONE,gid])).rows[0].id
+  for(const id of [post,secret])await db.query('insert into public.itext_likes(post_id,user_id) values($1,$2)',[id,ONE])
+  assert.equal((await db.query('select * from public.itext_liked_posts($1)',[ONE])).rows.length,2)
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_likes where user_id=$1',[ONE])).rows.length,0)
+  assert.equal((await db.query('select * from public.itext_liked_posts($1)',[ONE])).rows.length,0)
+  assert.equal((await db.query('select public.itext_likes_visible($1) as visible',[ONE])).rows[0].visible,false)
+  assert.equal((await db.query('select likes from public.itext_post_counts where id=$1',[post])).rows[0].likes,1)
+  await db.query('update public.chat_profiles set likes_public=true where id=$1',[ONE])
+  assert.equal((await db.query('select public.itext_likes_visible($1) as visible',[ONE])).rows[0].visible,false)
+  await as(db,ONE)
+  await db.query('update public.chat_profiles set likes_public=true where id=$1',[ONE])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_liked_posts($1)',[ONE])).rows.length,1)
+  assert.equal((await db.query('select * from public.itext_likes where user_id=$1',[ONE])).rows.length,1)
+  assert.equal((await db.query('select itext_private.like_count($1) as likes',[secret])).rows[0].likes,0)
+  await as(db)
+  assert.equal((await db.query('select likes from public.itext_post_counts where id=$1',[post])).rows[0].likes,1)
+  await assert.rejects(db.query('select * from public.itext_liked_posts($1)',[ONE]))
+  await as(db,ONE)
+  await db.query('update public.chat_profiles set likes_public=false where id=$1',[ONE])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_likes where user_id=$1',[ONE])).rows.length,0)
+  await db.query('insert into public.itext_likes(post_id,user_id) values($1,$2)',[post,TWO])
+  assert.equal((await db.query('select * from public.itext_likes where user_id=$1',[TWO])).rows.length,1)
+  await db.query('delete from public.itext_likes where post_id=$1 and user_id=$2',[post,TWO])
+  assert.equal((await db.query('select likes from public.itext_post_counts where id=$1',[post])).rows[0].likes,1)
  }finally{await db.close()}
 })

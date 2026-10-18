@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { hasNewVersion,fetchAppVersion } from '../src/services/appVersion.js'
 import { messageWasRead } from '../src/services/messaging.js'
-import { rememberChatSession,unlockedChatSession,lockChatSession } from '../src/services/chatSession.js'
+import { rememberChatSession,unlockedChatSession,lockChatSession,chatSessionEpoch } from '../src/services/chatSession.js'
 test('update notice only accepts a real different deployment and never treats offline or HTML fallbacks as updates',async()=>{
  assert.equal(hasNewVersion('version-current',{id:'version-current'}),false)
  assert.equal(hasNewVersion('version-current',{id:'version-updated'}),true)
@@ -25,6 +25,8 @@ test('unlocked chat sessions stay scoped to one user and disappear on lock',()=>
  rememberChatSession(session)
  assert.equal(unlockedChatSession('creator'),session)
  assert.equal(unlockedChatSession('other-account'),null)
+ const oldEpoch=chatSessionEpoch()
  lockChatSession()
+ assert.equal(rememberChatSession(session,oldEpoch),false)
  assert.equal(unlockedChatSession('creator'),null)
 })

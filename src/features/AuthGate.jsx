@@ -3,6 +3,8 @@ import { initializeAuth, supabase } from '../services/auth.js'
 import { loginErrorMessage } from '../services/loginOptions.js'
 import { lockChatSession } from '../services/chatSession.js'
 import WelcomeView from './WelcomeView.jsx'
+import DeviceGate from './DeviceGate.jsx'
+import { deviceSecurity } from '../services/deviceSecurity.js'
 
 export default function AuthGate({ children }) {
   const [session, setSession] = useState(null)
@@ -15,7 +17,7 @@ export default function AuthGate({ children }) {
     // Keep the callback synchronous: awaiting Supabase operations inside it can deadlock.
     const subscription = supabase?.auth.onAuthStateChange((_event, next) => {
       if (active) {
-        if (_event === 'SIGNED_OUT' || (activeUser.current && activeUser.current !== next?.user?.id)) lockChatSession()
+        if (_event === 'SIGNED_OUT' || (activeUser.current && activeUser.current !== next?.user?.id)) {lockChatSession();deviceSecurity.clear()}
         activeUser.current = next?.user?.id || null
         setSession(next)
       }
@@ -30,5 +32,5 @@ export default function AuthGate({ children }) {
 
   if (!ready) return <div className="entry-loading" role="status"><span className="entry-spinner" aria-hidden="true" /><p>Abrindo o Itext…</p></div>
   if (!session?.user) return <WelcomeView initialError={error} />
-  return children
+  return <DeviceGate key={session.user.id} userId={session.user.id} recoveryError={error}>{children}</DeviceGate>
 }

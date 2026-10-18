@@ -43,7 +43,7 @@ export function WelcomeContent({ providers, loading, error, busy, onLogin, onRet
           </>}
         </div>
         {google ? <p className="entry-account-hint">Quer usar outra conta Google? Você poderá escolhê-la na próxima tela.</p> : null}
-        <div className="entry-privacy"><ShieldCheck size={20} aria-hidden="true"/><div><strong>Entre sabendo como seus dados são usados.</strong><details><summary>Sobre seu perfil e suas mensagens</summary><p>Seu nome e sua foto ajudam a criar seu perfil público no Itext. Mensagens novas são criptografadas para os participantes e para o criador do Itext, que pode ler todas as conversas.</p><p>Guarde o código de recuperação ao ativar as mensagens. Ele será necessário para desbloqueá-las em outro aparelho.</p></details></div></div>
+        <div className="entry-privacy"><ShieldCheck size={20} aria-hidden="true"/><div><strong>Entre sabendo como seus dados são usados.</strong><details><summary>Sobre seu perfil e suas mensagens</summary><p>Seu nome e sua foto ajudam a criar seu perfil público no Itext. As mensagens são criptografadas, e o criador do Itext também pode ler as conversas.</p><p>Guarde o código de recuperação ao ativar as mensagens. Em um aparelho seu, você pode lembrar o acesso e ativar um PIN ou senha de bloqueio. O código continua necessário em aparelhos novos.</p></details></div></div>
       </section>
     </div>
     <footer className="entry-footer"><span>© {new Date().getFullYear()} Itext</span><span>Seu mundo, em movimento.</span></footer>

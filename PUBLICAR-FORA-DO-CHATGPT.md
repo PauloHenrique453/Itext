@@ -103,3 +103,9 @@ Os testes automatizados executam as políticas SQL em PostgreSQL local. Eles nã
 O endereço `web.app` dispensa compra de domínio. Um domínio próprio pode ser comprado e conectado ao Hosting depois; nessa etapa, inclua também o novo endereço nas URLs permitidas do Supabase.
 
 Os planos gratuitos têm limites e podem ter regras de pausa por inatividade. Arquivos usam a franquia gratuita do Supabase, não o Firebase Storage. Nenhum script deste projeto ativa plano pago, cartão ou faturamento.
+
+### Atualização de bloqueio e curtidas
+
+Após as migrações anteriores, aplique `supabase/migrations/20261018022252_profile_likes_privacy.sql` uma vez. No projeto `qnjanobhsnvrxoraifcc`, essa migração já foi aplicada. Ela não altera a chave do criador nem o conteúdo das mensagens.
+
+A recuperação de PIN usa o envio de Magic Link do Supabase. Configure o modelo [supabase/email-identification.html](supabase/email-identification.html) em Authentication → Email Templates → Magic Link e habilite Email. O envio padrão do Supabase atende apenas endereços permitidos da equipe; para os demais usuários é necessário configurar SMTP. Não coloque a senha SMTP no código nem a envie ao chat. O app mostra erro se o provedor recusar o envio e só libera a nova senha após verificar o link da conta correta. Faça um teste de entrega e redefinição no mesmo aparelho após a publicação, guardando antes o código de recuperação das mensagens.
