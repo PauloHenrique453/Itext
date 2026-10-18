@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/f1b579599ac126cae173aa0818ae5a91837fb9ea.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b029a1f58748732e4c75dff65f365b6076a615de.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/f1b579599ac126cae173aa0818ae5a91837fb9ea.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/b029a1f58748732e4c75dff65f365b6076a615de.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -249,3 +249,29 @@ O bloco **Atualizar o Itext já publicado** está apontado para a revisão que c
 O story tem um cartão vertical, foto circular e nome no topo, indicadores clicáveis, mídia em destaque, navegação discreta e ações na parte inferior. A criação ganhou opções com ícones e prévia. O celular usa a tela disponível; no computador o story fica centralizado. Nome e imagem continuam abrindo o perfil dentro da visualização; o círculo da lista abre o story.
 
 Build, verificações estáticas, SSR e testes focados passaram. Não foi possível testar o visual em Browser nesta sessão. Após **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5 e confira se o avatar continua circular, a foto/vídeo inteira aparece, o rodapé fica acessível com o teclado aberto e os segmentos/setas trocam o story. Não é preciso SQL ou instalar dependências outra vez.
+
+
+## Ishort: publicar e assistir vídeos de até 10 minutos
+
+O bloco **Atualizar o Itext já publicado** acima agora baixa o novo Ishort e todas as correções anteriores dos stories. Use o bloco deste guia atualizado: comandos antigos podem baixar versões anteriores. Execute na pasta que contém `.firebaserc` do projeto **itext-1b9da**. Não precisa executar npm ci, trocar chaves ou aplicar SQL.
+
+O Ishort tem:
+
+- Feed vertical com um vídeo ativo por vez, rolagem e botões para trocar de vídeo.
+- Abas Explorar e Seguindo, paginação e botão Atualizar vídeos.
+- Publicar vídeo com prévia, legenda e verificação de até **10 minutos e 50 MB**. MP4/H.264/AAC é recomendado; vertical é recomendado, horizontal também funciona.
+- Controles reais de pausa/reprodução, som, progresso e tela cheia quando o navegador permitir. Começa sem som; toque em Ativar som. Quando autoplay não for permitido, toque em reproduzir.
+- Curtidas, comentários/respostas, compartilhar, seguir e abrir o perfil, usando a mesma publicação que aparece no perfil.
+- Pausa ao sair da tela, ocultar a aba ou abrir uma janela de comentários/publicação.
+
+A aba começa vazia até existir publicação feita por **Publicar vídeo**, sem vídeos fictícios. Vídeos comuns já existentes no feed não foram reclassificados como Ishort. Vídeos mais longos continuam no feed normal. O limite de 50 MB vem do plano gratuito; não houve ativação de cobrança, compressão ou transcodificação.
+
+Depois de **Deploy complete!**, abra https://itext-1b9da.web.app e aceite Atualizar agora ou use Ctrl+F5. Entre no Ishort pelo menu e faça esta conferência:
+
+1. Publique um vídeo compatível abaixo de dez minutos/50 MB e confira se aparece no Ishort e no perfil.
+2. Teste tocar para pausar/reproduzir, ativar som, mover o progresso e tela cheia.
+3. Com dois vídeos reais, role para trocar e confira que apenas o visível continua tocando. Abra comentários e oculte a aba para conferir a pausa.
+4. Com outra conta real, siga o autor, curta, comente e abra o link compartilhado. O comentário é público no post, diferente da resposta privada de story.
+5. Confira a aba Seguindo, celular vertical/horizontal, tablet e computador. O botão Atualizar vídeos busca novas publicações.
+
+Passaram **62 testes**, build de produção, verificações estáticas e SSR dos controles. Browser não tem ferramenta de execução disponível nesta sessão; a imagem apresentada foi referência de design e não captura do site em execução. Reprodução, uploads, rolagem e tamanho visual nos aparelhos ainda precisam desta conferência após publicar. O README detalha as verificações e os limites.
