@@ -3,3 +3,4 @@
 -- Then execute migrations/20261017192931_restrict_itext_api_privileges.sql once.
 -- Finally execute migrations/20261017223908_improve_social_and_chat.sql once.
 -- Then execute migrations/20261018022252_profile_likes_privacy.sql once.
+-- Then execute migrations/20261018040725_optional_chat_protection.sql once.

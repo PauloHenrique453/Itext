@@ -1081,3 +1081,9 @@ h1, h2, h3, .brand__name { font-family: Manrope, Inter, sans-serif; }
 
 #messages-access { margin-bottom: 24px; }
 #messages-access .stack-form { margin-top: 18px; }
+
+.chat-mode-label { margin: 0 12px 8px; color: var(--text-soft); font-size: 12px; }
+.chat-mode-notice { margin: 8px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.chat-mode-notice p { font-size: 13px; line-height: 1.6; }
+.chat-mode-notice button { margin: 4px 6px 0 0; }
+#messages-access .settings-check { margin-top: 12px; }

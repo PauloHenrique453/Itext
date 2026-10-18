@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { checkDeployment } from '../scripts/check-deployment.mjs'
 const config={VITE_SUPABASE_URL:'https://example.supabase.co',VITE_SUPABASE_PUBLISHABLE_KEY:'sb_publishable_test_configuration'}
-const privateTables=['direct_messages','chat_profiles','itext_dating','itext_swipes','itext_group_invites','itext_chat_keys','itext_chat_privacy','itext_chat_public_keys','itext_conversation_reads','itext_chat_inbox']
+const privateTables=['direct_messages','chat_profiles','itext_dating','itext_swipes','itext_group_invites','itext_chat_keys','itext_chat_privacy','itext_chat_public_keys','itext_conversation_reads','itext_chat_inbox','itext_chat_preferences']
 function service(change = () => null) {
   return async (address, options) => {
     assert.equal(options.headers.apikey, config.VITE_SUPABASE_PUBLISHABLE_KEY)
@@ -33,9 +33,9 @@ test('network failures and invalid public credentials stop deployment rather tha
  await assert.rejects(checkDeployment({...config,VITE_SUPABASE_PUBLISHABLE_KEY:'sb_secret_not_a_public_key'},service()),/Publishable key/)
 })
 
-test('initial publication permits a locked chat for Google account creation, but refuses missing encryption schema',async()=>{
+test('initial publication permits standard chats before the optional creator encryption key is ready, but refuses missing encryption schema',async()=>{
  const pending=await checkDeployment(config,service((url)=>url.endsWith('/itext_crypto_ready')?Response.json(false):null))
- assert.match(pending[3],/chat bloqueado/)
+ assert.match(pending[3],/proteção adicional aguarda/)
  await assert.rejects(checkDeployment(config,service((url)=>url.endsWith('/itext_crypto_ready')?Response.json({}, {status:404}):null)),/creator-privacy.sql/)
  await assert.rejects(checkDeployment(config,service((url)=>url.endsWith('/itext_crypto_ready')?Response.json([]):null)),/configuração da criptografia/)
 })

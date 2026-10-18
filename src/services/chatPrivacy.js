@@ -17,13 +17,22 @@ export function privacyClient(client) {
   return {
     async state() {
       const id = await uid()
-      const config = await client.from('itext_chat_privacy').select('owner_id,notice_version').single()
-      if (config.error) throw new Error('As mensagens criptografadas aguardam a configuração do criador. O envio está bloqueado.')
-      if (config.data.notice_version !== PRIVACY_NOTICE) throw new Error('A política de mensagens precisa ser atualizada.')
+      const config = await client.from('itext_chat_privacy').select('owner_id,notice_version').maybeSingle()
+      if(config.error)throw config.error
+      const preference=await client.from('chat_profiles').select('chat_protection_enabled').eq('id',id).single()
+      if(preference.error)throw preference.error
+      const enabled=preference.data.chat_protection_enabled===true
       const vault = await client.from('itext_chat_keys').select('*').eq('user_id', id).maybeSingle()
       if (vault.error) throw vault.error
-      const keys = await directory([config.data.owner_id])
-      return { id, ownerId: config.data.owner_id, isOwner: id === config.data.owner_id, ownerReady: !!keys[config.data.owner_id], vault: vault.data }
+      const ownerId=config.data?.owner_id||null
+      const keys = await directory(ownerId?[ownerId]:[])
+      return { id, enabled, ownerId, isOwner:id===ownerId, ownerReady:!!keys[ownerId]&&config.data?.notice_version===PRIVACY_NOTICE, vault:vault.data }
+    },
+    async setEnabled(enabled){
+      const id=await uid()
+      const {error}=await client.from('chat_profiles').update({chat_protection_enabled:enabled===true}).eq('id',id)
+      if(error)throw error
+      return this.state()
     },
     async activate(state, code, options) {
       if (!state.isOwner && !state.ownerReady) throw new Error('O criador precisa ativar sua chave primeiro.')

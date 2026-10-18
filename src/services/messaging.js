@@ -45,13 +45,17 @@ export function messagesClient(client) {
       if (!data.length) return []
       const keys = await client.from('itext_chat_public_keys').select('user_id').in('user_id',data.map((person) => person.id))
       if (keys.error) throw keys.error
-      return Promise.all(data.map(async (person) => ({ ...person, avatar_url: await chatAvatar(client, person.avatar_url), ready: keys.data.some((key) => key.user_id === person.id) })))
+      const preferences=await client.from('itext_chat_preferences').select('user_id,enabled').in('user_id',data.map(person=>person.id))
+      if(preferences.error)throw preferences.error
+      return Promise.all(data.map(async (person) => ({ ...person, avatar_url: await chatAvatar(client, person.avatar_url), ready: keys.data.some((key) => key.user_id === person.id)&&preferences.data.some(pref=>pref.user_id===person.id&&pref.enabled) })))
     },
     async person(id) {
       const profile = await client.from('itext_public_profiles').select('id,name,avatar_url').eq('id',id).single()
       const key = await client.from('itext_chat_public_keys').select('user_id').eq('user_id',id).maybeSingle()
       if (profile.error || key.error) throw profile.error || key.error
-      return { ...profile.data, avatar_url: await chatAvatar(client, profile.data.avatar_url), ready: !!key.data }
+      const preference=await client.from('itext_chat_preferences').select('enabled').eq('user_id',id).single()
+      if(preference.error)throw preference.error
+      return { ...profile.data, avatar_url: await chatAvatar(client, profile.data.avatar_url), ready: !!key.data&&preference.data.enabled }
     },
     async inbox() {
       const { data, error } = await client.from('itext_chat_inbox').select('*')
@@ -88,7 +92,8 @@ export function messagesClient(client) {
     },
     async send(payload) {
       const id = await identity()
-      if (payload.sender_id !== id || payload.recipient_id === id || payload.encryption_version !== 1 || !payload.body.startsWith('-----BEGIN PGP MESSAGE-----')) throw new Error('Mensagem criptografada inválida.')
+      const validFormat=payload.encryption_version===0?payload.owner_id===null&&typeof payload.body==='string'&&payload.body.trim().length>0&&payload.body.length<=4000:payload.encryption_version===1&&typeof payload.body==='string'&&payload.body.startsWith('-----BEGIN PGP MESSAGE-----')
+      if (payload.sender_id !== id || payload.recipient_id === id || !validFormat) throw new Error('Mensagem inválida.')
       const { data, error } = await client.from('direct_messages').insert(payload).select().single()
       if (error) {
         if (error.code === '23505') {

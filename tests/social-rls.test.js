@@ -21,6 +21,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/migrations/20261017192931_restrict_itext_api_privileges.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261017223908_improve_social_and_chat.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018022252_profile_likes_privacy.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261018040725_optional_chat_protection.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -139,6 +140,7 @@ test('API wrappers preserve public access while full profiles, private vaults an
   assert.equal((await db.query('select public.itext_is_creator() as allowed')).rows[0].allowed,false)
   for(const id of [TWO,THREE]){
     await as(db,id)
+    await db.query('update public.chat_profiles set chat_protection_enabled=true where id=$1',[id])
     await db.query('insert into public.itext_chat_keys(user_id,public_key,encrypted_private_key,fingerprint,notice_version) values($1,$2,$3,$4,$5)',[id,'-----BEGIN PGP PUBLIC KEY BLOCK-----'+'a'.repeat(150),'-----BEGIN PGP PRIVATE KEY BLOCK-----'+'b'.repeat(150),'a'.repeat(40),'creator-access-v1'])
   }
   await as(db,TWO)
@@ -251,5 +253,47 @@ test('hidden likes conceal identities and profile lists through the API while re
   assert.equal((await db.query('select * from public.itext_likes where user_id=$1',[TWO])).rows.length,1)
   await db.query('delete from public.itext_likes where post_id=$1 and user_id=$2',[post,TWO])
   assert.equal((await db.query('select likes from public.itext_post_counts where id=$1',[post])).rows[0].likes,1)
+ }finally{await db.close()}
+})
+
+
+test('standard chats work without key setup; opt-in encryption requires both participants and never exposes another vault',async()=>{
+ const db=await setup()
+ try{
+  await as(db,TWO)
+  assert.equal((await db.query('select chat_protection_enabled from public.chat_profiles')).rows[0].chat_protection_enabled,false)
+  const message=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version,owner_id) values($1,$2,'Conversa padrão',0,null) returning id",[TWO,THREE])).rows[0].id
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version) values($1,$2,'Falso remetente',0)",[ONE,THREE]))
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version) values($1,$1,'Eu mesmo',0)",[TWO]))
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version) values($1,$2,$3,0)",[TWO,THREE,'a'.repeat(4001)]))
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.direct_messages where id=$1',[message])).rows.length,0)
+  await as(db,THREE)
+  assert.equal((await db.query('select body from public.direct_messages where id=$1',[message])).rows[0].body,'Conversa padrão')
+  await db.exec('reset role')
+  await db.query('insert into public.itext_chat_privacy(owner_id) values($1)',[ONE])
+  for(const id of [ONE,TWO,THREE]){
+   await as(db,id)
+   await db.query('insert into public.itext_chat_keys(user_id,public_key,encrypted_private_key,fingerprint,notice_version) values($1,$2,$3,$4,$5)',[id,'-----BEGIN PGP PUBLIC KEY BLOCK-----'+'a'.repeat(150),'-----BEGIN PGP PRIVATE KEY BLOCK-----'+'b'.repeat(150),'a'.repeat(40),'creator-access-v1'])
+  }
+  await as(db,TWO)
+  await db.query('update public.chat_profiles set chat_protection_enabled=true where id=$1',[TWO])
+  await db.query('update public.chat_profiles set chat_protection_enabled=true where id=$1',[THREE])
+  assert.equal((await db.query('select enabled from public.itext_chat_preferences where user_id=$1',[THREE])).rows[0].enabled,false)
+  const insert=()=>db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version,owner_id) values($1,$2,'-----BEGIN PGP MESSAGE-----fixture',1,$3)",[TWO,THREE,ONE])
+  await assert.rejects(insert())
+  await as(db,THREE)
+  await db.query('update public.chat_profiles set chat_protection_enabled=true where id=$1',[THREE])
+  await as(db,TWO);await insert()
+  await as(db,THREE)
+  await db.query('update public.chat_profiles set chat_protection_enabled=false where id=$1',[THREE])
+  assert.equal((await db.query('select * from public.direct_messages where encryption_version=1')).rows.length,1)
+  assert.equal((await db.query('select * from public.itext_chat_keys')).rows.length,1)
+  await as(db,TWO);await assert.rejects(insert())
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.direct_messages')).rows.length,2)
+  await as(db)
+  await assert.rejects(db.query('select * from public.itext_chat_preferences'))
+  await assert.rejects(db.query('select * from public.direct_messages'))
  }finally{await db.close()}
 })

@@ -25,7 +25,7 @@ export async function checkDeployment(config, fetcher = fetch) {
     if (!response.ok) throw new Error(`A estrutura ${table} não está acessível. Confira a aplicação de supabase/social.sql e das migrações posteriores.`)
   }
   checks.push('Estrutura pública do aplicativo disponível')
-  for (const table of ['direct_messages', 'chat_profiles', 'itext_dating', 'itext_swipes', 'itext_group_invites', 'itext_chat_keys', 'itext_chat_privacy', 'itext_chat_public_keys', 'itext_conversation_reads', 'itext_chat_inbox']) {
+  for (const table of ['direct_messages', 'chat_profiles', 'itext_dating', 'itext_swipes', 'itext_group_invites', 'itext_chat_keys', 'itext_chat_privacy', 'itext_chat_public_keys', 'itext_conversation_reads', 'itext_chat_inbox', 'itext_chat_preferences']) {
     const response = await request(`/rest/v1/${table}?select=*&limit=0`)
     if (![401, 403].includes(response.status)) {
       throw new Error(`Acesso anônimo a ${table} não foi bloqueado como esperado. Revise as permissões antes de publicar.`)
@@ -36,7 +36,7 @@ export async function checkDeployment(config, fetcher = fetch) {
   if (!crypto.ok) throw new Error('Aplique supabase/creator-privacy.sql antes de publicar. A estrutura de criptografia não foi confirmada.')
   const ready = await crypto.json()
   if (typeof ready !== 'boolean') throw new Error('Não foi possível confirmar a configuração da criptografia.')
-  checks.push(ready ? 'Chave pública do criador cadastrada (validar o desbloqueio com contas reais)' : 'Primeiro acesso: chat bloqueado até configurar a conta e a chave do criador')
+  checks.push(ready ? 'Chave pública do criador cadastrada (validar o desbloqueio com contas reais)' : 'Mensagens padrão disponíveis; proteção adicional aguarda a conta e a chave do criador')
   return checks
 }
 

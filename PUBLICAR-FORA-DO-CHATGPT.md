@@ -11,7 +11,7 @@ O site antigo do Sites continua separado. Seus dados não são migrados automati
 1. Crie o projeto Supabase no plano Free.
 2. No SQL Editor, execute `supabase/google-chat.sql` uma única vez. Se `chat_profiles` e `direct_messages` já existem, essa etapa está concluída.
 3. Execute **supabase/social.sql** uma vez. Esse arquivo acrescenta perfis sociais, publicações, curtidas, comentários, grupos, páginas, conexões e o bucket privado de mídia, sem dados fictícios. As conversas existentes ficam preservadas.
-4. Execute **supabase/creator-privacy.sql** uma vez. Ele acrescenta as chaves protegidas e as políticas de acesso declarado do criador. Mensagens antigas ficam preservadas e identificadas como anteriores à criptografia; não há novos envios em texto simples.
+4. Execute **supabase/creator-privacy.sql** uma vez. Ele acrescenta as chaves protegidas e as políticas de acesso declarado do criador. Mensagens antigas ficam preservadas. Depois das migrações de permissões, seguidores e curtidas, aplique também `supabase/migrations/20261018040725_optional_chat_protection.sql`, que permite mensagens padrão e torna a camada adicional uma escolha dos participantes.
 5. Execute `supabase/migrations/20261017192931_restrict_itext_api_privileges.sql`. Esse ajuste restringe as funções privilegiadas, as configurações privadas de perfil e as chaves. Não acrescente `itext_private` aos schemas expostos pela Data API. Depois, execute `supabase/migrations/20261017223908_improve_social_and_chat.sql`, que acrescenta contadores de seguidores e recibos de leitura. A ordem dos scripts acima é necessária; a migração de permissões sozinha não instala um banco vazio.
 6. Copie Project URL e Publishable key de Settings → API Keys. O código usa somente a chave pública `sb_publishable_`.
 
@@ -71,19 +71,19 @@ A callback do provedor Google continua sendo a do Supabase. Não a substitua pel
 
 ## Ativar sua conta de criador
 
-A primeira publicação permite entrar com Google, mas o chat permanece bloqueado. Não crie uma senha manual no Supabase para substituir esse login.
+A primeira publicação permite entrar com Google e conversar no modo padrão, sem configurar chaves. Não crie uma senha manual no Supabase para substituir esse login.
 
 1. Depois de autorizar o endereço do site, entre no Itext com **sua própria conta Google**.
 2. No Supabase → Authentication → Users, copie o **User UID** dessa conta.
 3. Em `supabase/activate-creator.sql`, substitua `PREENCHER_USER_UID` pelo UID. Execute o arquivo no SQL Editor do seu projeto. O script exige uma identidade Google verificada e recusa uma segunda designação. Nenhum usuário pode se promover pelo navegador.
-4. No Itext → Mensagens, gere seu código de recuperação. Guarde-o em um gerenciador de senhas ou local seguro, confirme o aviso de acesso e ative a chave.
+4. Se desejar a proteção adicional, abra Configurações → Proteção adicional das mensagens, ative a opção e gere seu código de recuperação. Guarde-o em um gerenciador de senhas ou local seguro, confirme o aviso de acesso e ative a chave.
 5. **Não envie o código de recuperação pelo chat, GitHub ou e-mail.** Ele abre sua chave, inclusive seu acesso de criador. O Google não recupera esse código. Não há redefinição automática ou rotação de chaves nesta versão.
-6. Outras pessoas ativam suas próprias chaves e guardam seus códigos. Só é possível enviar quando remetente, destinatário e criador têm chaves cadastradas.
+6. Outras pessoas podem escolher a proteção adicional e cadastrar suas chaves. Somente esse modo exige a escolha dos participantes e as chaves de remetente, destinatário e criador; as mensagens padrão funcionam sem essas etapas.
 7. Sua conta verá “Revisar todas as mensagens”. As demais contas só veem as próprias conversas.
 
-OpenPGP.js criptografa e assina o texto novo no navegador para os dois participantes e para o criador. A interface informa claramente que o criador tem acesso. Não anuncie o produto como criptografia exclusiva entre os participantes. Outros conteúdos mantêm as permissões sociais e o acesso técnico do dono pelo painel Supabase; não recebem a criptografia adicional das mensagens.
+No modo adicional, OpenPGP.js criptografa e assina o texto no navegador para os dois participantes e para o criador. A interface informa claramente que o criador tem acesso. Não anuncie o produto como criptografia exclusiva entre os participantes. Outros conteúdos mantêm as permissões sociais e o acesso técnico do dono pelo painel Supabase; não recebem a criptografia adicional das mensagens.
 
-O repositório guarda somente o modelo SQL de ativação, nunca sua chave privada ou código. Uma chave privada protegida fica no banco; o código e a chave desbloqueada ficam no aparelho. Bloquear as mensagens, sair da conta ou recarregar a página exige desbloquear novamente. A navegação dentro da mesma sessão conserva a chave somente em memória. A proteção também depende da segurança das contas administrativas, do código hospedado e dos aparelhos.
+O repositório guarda somente o modelo SQL de ativação, nunca sua chave privada ou código. Uma chave privada protegida fica no banco; o código e a chave desbloqueada ficam no aparelho. Acesso à proteção adicional pode ser salvo opcionalmente no aparelho. Mensagens padrão não exigem código. A navegação dentro da mesma sessão conserva a chave somente em memória. A proteção também depende da segurança das contas administrativas, do código hospedado e dos aparelhos.
 
 ## Testar de verdade
 
@@ -111,4 +111,7 @@ Após as migrações anteriores, aplique `supabase/migrations/20261018022252_pro
 A recuperação de PIN usa o envio de Magic Link do Supabase. Configure o modelo [supabase/email-identification.html](supabase/email-identification.html) em Authentication → Email Templates → Magic Link e habilite Email. O envio padrão do Supabase atende apenas endereços permitidos da equipe; para os demais usuários é necessário configurar SMTP. Não coloque a senha SMTP no código nem a envie ao chat. O app mostra erro se o provedor recusar o envio e só libera a nova senha após verificar o link da conta correta. Faça um teste de entrega e redefinição no mesmo aparelho após a publicação, guardando antes o código de recuperação das mensagens.
 
 
-A configuração inicial e a recuperação de mensagens ficam em **Configurações → Acesso às mensagens**, com o botão **Salvar acesso neste aparelho**. Não há campo de senha/código na tela de conversas. A chave original continua exigindo o código guardado para habilitar um aparelho novo. Esta mudança de interface não altera o PIN do aparelho nem o banco de dados.
+A configuração e a recuperação da camada adicional ficam em **Configurações → Proteção adicional das mensagens**. O formulário só aparece após ativar a opção, com o botão **Salvar acesso neste aparelho**. Não há campo de senha/código na tela de conversas. A chave original continua exigindo o código guardado para habilitar um aparelho novo. Esta mudança de interface não altera o PIN do aparelho nem o banco de dados.
+
+
+A migração `20261018040725_optional_chat_protection.sql` habilita o modo padrão autenticado, limitado aos participantes e ao criador. A coluna de escolha é desativada por padrão; as chaves e o histórico existente são preservados. Esta migração deve preceder a publicação da nova interface. As mensagens padrão ficam em texto no servidor; não as anuncie como OpenPGP ou criptografia exclusiva entre participantes.
