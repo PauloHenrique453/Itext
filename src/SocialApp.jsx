@@ -53,6 +53,8 @@ export default function SocialApp() {
   const [conversationTarget, setConversationTarget] = useState(null)
   const [showMenu, setShowMenu] = useState(false)
   const [peopleFilter, setPeopleFilter] = useState('all')
+  const [sidebarCollapsed,setSidebarCollapsed]=useState(()=>{try{return window.localStorage.getItem('itext:sidebar:v1')==='collapsed'}catch{return false}})
+  function toggleSidebar(){const next=!sidebarCollapsed;setSidebarCollapsed(next);try{window.localStorage.setItem('itext:sidebar:v1',next?'collapsed':'expanded')}catch{/* The layout still works when storage is unavailable. */}}
   const backend = useItextBackend()
   usePresence(backend.user?.authenticated?backend.user.id:null)
   const notificationCount=useNotificationCount(backend.user?.authenticated?backend.user.id:null)
@@ -153,8 +155,8 @@ export default function SocialApp() {
   const hideRightRail = wideViews.has(viewId)
 
   return (
-    <ProfileNavigation.Provider value={openProfile}><PhotoNavigation.Provider value={openPhoto}><div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}`}>
-      <Sidebar activeView={viewId} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} unread={unread} notifications={notificationCount} />
+    <ProfileNavigation.Provider value={openProfile}><PhotoNavigation.Provider value={openPhoto}><div className={`app-shell ${hideRightRail ? 'app-shell--wide' : ''}${sidebarCollapsed?' app-shell--collapsed':' app-shell--expanded'}`}>
+      <Sidebar collapsed={sidebarCollapsed} onToggleCollapsed={toggleSidebar} activeView={viewId} onNavigate={navigate} onCreate={() => setShowCreate(true)} user={backend.user} unread={unread} notifications={notificationCount} />
       <header className="mobile-header"><button onClick={() => navigate('home')}><Brand /></button><div className="mobile-header__actions"><button onClick={() => navigate('people')} aria-label="Encontrar pessoas"><UserPlus size={20}/></button><button onClick={() => navigate('messages')} aria-label={`Mensagens${unread ? `, ${unread} não lidas` : ''}`} className="unread-icon"><MessageCircle size={20}/>{unread ? <b>{unread > 99 ? '99+' : unread}</b> : null}</button><button className="unread-icon" onClick={()=>navigate('notifications')} aria-label={`Notificações${notificationCount?`, ${notificationCount} não lidas`:''}`}><Bell size={20}/>{notificationCount?<b>{notificationCount>99?'99+':notificationCount}</b>:null}</button><button onClick={() => setShowMenu(true)} aria-label="Abrir menu"><Menu size={20}/></button><button className="mobile-profile-button" onClick={() => navigate('profile')} aria-label="Abrir meu perfil"><Avatar userId={backend.user.id} src={backend.user.avatar} alt="" size="xs" /></button></div></header>
       <div className="app-main">{independent && backend.user.authenticated ? <div className="signin-banner"><span>{backend.user.name}</span><button className="secondary-button" onClick={() => signOut().catch((error) => notify(error.message))}>Sair</button></div> : null}{view}</div>
       {hideRightRail ? null : <RightRail onSearch={search} posts={backend.posts} profiles={backend.profiles} user={backend.user} onFollow={backend.toggleProfileFollow} onNotify={notify} />}

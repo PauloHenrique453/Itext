@@ -197,10 +197,11 @@ export const socialApi={
     const user=await identity()
     return result(supabase.from(kind==='group'?'itext_groups':'itext_pages').update({name:payload.name.trim(),description:payload.description.trim(),category:payload.category||'Não definido',avatar_url:storedUrl(payload.avatar),cover_url:storedUrl(payload.coverUrl)}).eq('id',id).eq('owner_id',user.id).select('id').single())
   },
-  async stories(authorId=null) {
+  async stories(authorId=null,storyId=null) {
     const user=await identity()
     let query=supabase.from('itext_stories').select('*').order('created_at',{ascending:false}).limit(100)
     if(authorId)query=query.eq('author_id',authorId)
+    if(storyId)query=query.eq('id',storyId)
     const rows=await result(query)
     if(!rows.length)return []
     const [authors,counts,likes]=await Promise.all([

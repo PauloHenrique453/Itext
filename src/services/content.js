@@ -21,3 +21,13 @@ export function threadComments(rows) {
  for(const row of byId.values())if(!visited.has(row.id))output.push({...row,depth:0})
  return output
 }
+
+const storyIdPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export function storyIdFromSearch(search=''){const id=new URLSearchParams(search).get('story');return storyIdPattern.test(id||'')?id:null}
+export function storyAddress(id,address){
+ if(!storyIdPattern.test(id||''))throw new Error('Story inválido.')
+ const url=new URL(address)
+ if(!['http:','https:'].includes(url.protocol)||url.username||url.password)throw new Error('Endereço do Itext inválido.')
+ url.search='';url.hash='';url.searchParams.set('story',id)
+ return url.href
+}

@@ -6,6 +6,8 @@ import {
   Home,
   MessageCircle,
   PanelsTopLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Settings,
   Sparkles,
@@ -31,14 +33,14 @@ export const navItems = [
   { id: 'settings', label: 'Configurações', icon: Settings },
 ]
 
-export default function Sidebar({ activeView, onNavigate, onCreate, user, unread=0, notifications=0 }) {
+export default function Sidebar({ activeView, onNavigate, onCreate, user, unread=0, notifications=0, collapsed=false, onToggleCollapsed }) {
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed?' sidebar--collapsed':''}`}>
       <div className="sidebar__top">
-        <button className="brand-button" onClick={() => onNavigate('home')} aria-label="Ir para o início">
+        <div className="sidebar__heading"><button className="brand-button" onClick={() => onNavigate('home')} aria-label="Ir para o início">
           <Brand />
-        </button>
-        <nav className="sidebar__nav" aria-label="Navegação principal">
+        </button><button type="button" className="icon-button sidebar-collapse" onClick={onToggleCollapsed} aria-label={collapsed?'Expandir menu lateral':'Recolher menu lateral'} title={collapsed?'Expandir menu lateral':'Recolher menu lateral'} aria-expanded={!collapsed} aria-controls="itext-main-nav">{collapsed?<PanelLeftOpen size={22}/>:<PanelLeftClose size={22}/>}</button></div>
+        <nav id="itext-main-nav" className="sidebar__nav" aria-label="Navegação principal">
           {navItems.map(({ id, label, icon: Icon, badge }) => (
             <button
               className={`nav-item ${activeView === id ? 'is-active' : ''}`}
@@ -46,6 +48,7 @@ export default function Sidebar({ activeView, onNavigate, onCreate, user, unread
               onClick={() => onNavigate(id)}
               aria-current={activeView === id ? 'page' : undefined}
               aria-label={label}
+              title={label}
             >
               <Icon size={21} strokeWidth={activeView === id ? 2.4 : 1.8} />
               <span>{label}</span>
@@ -53,13 +56,13 @@ export default function Sidebar({ activeView, onNavigate, onCreate, user, unread
             </button>
           ))}
         </nav>
-        <button className="create-button" onClick={onCreate}>
+        <button className="create-button" onClick={onCreate} aria-label="Criar publicação" title="Criar publicação">
           <Plus size={20} />
           <span>Criar</span>
         </button>
       </div>
 
-      <button className="user-menu" onClick={() => onNavigate('profile')} aria-label="Abrir meu perfil">
+      <button className="user-menu" onClick={() => onNavigate('profile')} aria-label="Abrir meu perfil" title="Abrir meu perfil">
         <Avatar userId={user.id} src={user.avatar} alt={user.name} />
         <span className="user-menu__copy">
           <strong>{user.name}</strong>

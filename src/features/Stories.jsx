@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Heart, Plus, Send, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Heart, Plus, Send, Share2, Trash2 } from 'lucide-react'
 import AudioPlayer from '../components/AudioPlayer.jsx'
 import { storyColors,storyFonts } from '../services/mediaFormats.js'
-import { attachmentInfo } from '../services/content.js'
+import { attachmentInfo,storyAddress,storyIdFromSearch } from '../services/content.js'
 import Avatar from '../components/Avatar.jsx'
 import Modal from '../components/Modal.jsx'
 import { itextApi } from '../services/itextApi.js'
@@ -15,7 +15,7 @@ import { chatMode, standardMessage } from '../services/chatMode.js'
 const messages=supabase?messagesClient(supabase):null
 const privacy=supabase?privacyClient(supabase):null
 
-function StoryReply({story,user,onNotify,onMessage}) {
+export function StoryReply({story,user,onNotify,onMessage}) {
   const [draft,setDraft]=useState('')
   const [ready,setReady]=useState(null)
   const [standard,setStandard]=useState(false)
@@ -44,7 +44,7 @@ function StoryReply({story,user,onNotify,onMessage}) {
       await messages.send(attempt.payload);setDraft('');pending.current=null;onNotify('Resposta enviada como mensagem ao dono do story.')
     }catch(issue){setError(issue.message)}finally{setBusy(false)}
   }
-  return <div className="story-reply" data-has-drafts={draft.trim()?'true':undefined}>{error?<p className="chat-error" role="alert">{error}</p>:null}{ready&&!ready.allowed?<p>As mensagens com esta pessoa estão bloqueadas.</p>:<><p className="form-note">Seu comentário será uma mensagem para {story.name}.</p>{mode==='needs-setup'?<div className="chat-mode-notice"><p>A proteção adicional escolhida não está disponível aqui.</p><button className="secondary-button" onClick={()=>setStandard(true)}>Enviar como conversa padrão</button><button className="text-button" onClick={()=>onMessage({id:story.author_id,name:story.name})}>Abrir conversa</button></div>:null}<form onSubmit={send}><input aria-label="Responder ao story" placeholder="Enviar comentário privado…" value={draft} maxLength={4000} disabled={busy} onChange={event=>setDraft(event.target.value)}/><button className="send-button" aria-label="Enviar resposta ao story" disabled={busy||!draft.trim()||!ready?.allowed||!['standard','protected'].includes(mode)}><Send size={18}/></button></form></>}</div>
+  return <div className="story-reply" data-has-drafts={draft.trim()?'true':undefined}>{error?<p className="chat-error" role="alert">{error}</p>:null}{ready&&!ready.allowed?<p>As mensagens com esta pessoa estão bloqueadas.</p>:<><p className="form-note">Seu comentário será uma mensagem para {story.name}.</p>{mode==='needs-setup'?<div className="chat-mode-notice"><p>A proteção adicional escolhida não está disponível aqui.</p><button className="secondary-button" onClick={()=>setStandard(true)}>Enviar como conversa padrão</button><button className="text-button" onClick={()=>onMessage({id:story.author_id,name:story.name})}>Abrir conversa</button></div>:null}<form onSubmit={send}><input aria-label="Responder ao story" placeholder="Comentar…" value={draft} maxLength={4000} disabled={busy} onChange={event=>setDraft(event.target.value)}/><button className="send-button" aria-label="Enviar resposta ao story" disabled={busy||!draft.trim()||!ready?.allowed||!['standard','protected'].includes(mode)}><Send size={18}/></button></form></>}</div>
 }
 
 export function StoryCanvas({type,url,text='',background='#102a43',font='classic',caption=''}){
@@ -61,16 +61,25 @@ export function StoryComposer({onClose,onPublished}) {
 
 export default function Stories({user,authorId=null,onNotify,onMessage}) {
   const [rows,setRows]=useState([])
-  const [selected,setSelected]=useState(null)
+  const [selected,setSelected]=useState(()=>!authorId&&typeof window!=='undefined'?storyIdFromSearch(window.location.search):null)
+  const selectedRef=useRef(selected);selectedRef.current=selected
+  const [loading,setLoading]=useState(true)
   const [creating,setCreating]=useState(false)
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
   const [confirmDelete,setConfirmDelete]=useState(false)
   const version=useRef(0)
-  async function refresh(){const ticket=++version.current;const stories=await itextApi.stories(authorId);if(ticket===version.current){setRows(stories);setError('')}}
+  async function refresh(){
+    const ticket=++version.current,target=selectedRef.current
+    const stories=await itextApi.stories(authorId)
+    if(target&&!stories.some(row=>row.id===target)){const linked=await itextApi.stories(null,target);if(linked[0])stories.push(linked[0])}
+    if(ticket===version.current){setRows(stories);setLoading(false);setError('')}
+  }
+  function closeStory(){setSelected(null);setConfirmDelete(false);const url=new URL(window.location.href);if(url.searchParams.has('story')){url.searchParams.delete('story');window.history.replaceState(null,'',url)}}
+  async function share(){if(!story)return;try{const url=storyAddress(story.id,window.location.href);if(navigator.share)await navigator.share({title:`Story de ${story.name} no Itext`,url});else{await navigator.clipboard.writeText(url);onNotify('Link do story copiado.')}}catch(issue){if(issue.name!=='AbortError')onNotify('Não foi possível compartilhar o story. Tente novamente.')}}
   useEffect(()=>{
     let active=true
-    const load=()=>{void refresh().catch(issue=>{if(active)setError(issue.message)})}
+    const load=()=>{void refresh().catch(issue=>{if(active){setError(issue.message);setLoading(false)}})}
     load();const timer=setInterval(load,45000)
     return()=>{active=false;version.current++;clearInterval(timer)}
   },[authorId,user.id])
@@ -81,6 +90,14 @@ export default function Stories({user,authorId=null,onNotify,onMessage}) {
   const index=ordered.findIndex(row=>row.id===selected)
   const people=[...new Set(ordered.map(row=>row.author_id))].map(author=>ordered.find(row=>row.author_id===author))
   async function like(){if(busy||!story)return;setBusy(true);try{await itextApi.toggleStoryLike(story.id);await refresh()}catch(issue){setError(issue.message)}finally{setBusy(false)}}
-  async function remove(){if(busy||!story)return;setBusy(true);try{await itextApi.deleteStory(story.id);setSelected(null);setConfirmDelete(false);await refresh();onNotify('Story apagado.')}catch(issue){setError(issue.message)}finally{setBusy(false)}}
-  return <section className="stories-section" aria-label="Stories"><div className="stories-strip">{!authorId||authorId===user.id?<button className="story-circle story-create" onClick={()=>setCreating(true)}><span><Plus size={24}/></span><strong>Seu story</strong></button>:null}{people.map(person=><button className="story-circle" key={person.author_id} onClick={()=>{setSelected(person.id);setConfirmDelete(false)}}><span><Avatar userId={person.author_id} src={person.avatar} alt=""/></span><strong>{person.author_id===user.id?'Ver seus stories':person.name}</strong></button>)}{authorId&&!rows.length?<p className="empty-inline">Sem stories ativos.</p>:null}</div>{error?<p className="chat-error" role="alert">{error}<button className="text-button" onClick={()=>void refresh().catch(issue=>setError(issue.message))}>Tentar novamente</button></p>:null}{creating?<StoryComposer onClose={()=>setCreating(false)} onPublished={async()=>{await refresh();onNotify('Story publicado por 24 horas.')}}/>:null}{selected?<Modal title={story?`Story de ${story.name}`:'Story indisponível'} onClose={()=>{setSelected(null);setConfirmDelete(false)}} size="lg">{story?<div className="story-viewer">{error?<p className="chat-error" role="alert">{error}</p>:null}<div className="story-topline"><Avatar userId={story.author_id} src={story.avatar} alt={story.name} size="sm"/><span>{new Date(story.created_at).toLocaleString('pt-BR')}</span><span>{index+1} de {rows.length}</span></div><div className="story-media"><StoryCanvas type={story.media_type} url={story.url} text={story.text_content} background={story.background_color} font={story.font_style} caption={story.caption}/></div>{story.caption?<p className="story-caption">{story.caption}</p>:null}<div className="story-controls"><button className="icon-button" aria-label="Story anterior" disabled={index<1} onClick={()=>{setSelected(ordered[index-1].id);setConfirmDelete(false)}}><ChevronLeft/></button><button className={story.liked?'story-like is-liked':'story-like'} aria-pressed={story.liked} aria-label="Curtir story" disabled={busy} onClick={like}><Heart size={22} fill={story.liked?'currentColor':'none'}/>{story.likes}</button>{story.author_id===user.id?<button className="icon-button" aria-label="Apagar story" onClick={()=>setConfirmDelete(true)}><Trash2 size={19}/></button>:null}<button className="icon-button" aria-label="Próximo story" disabled={index===rows.length-1} onClick={()=>{setSelected(ordered[index+1].id);setConfirmDelete(false)}}><ChevronRight/></button></div>{confirmDelete?<div className="story-delete-confirm"><p>Apagar este story para todos?</p><button className="secondary-button" onClick={()=>setConfirmDelete(false)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={remove}>Apagar</button></div>:null}{story.author_id!==user.id?<StoryReply key={story.id} story={story} user={user} onNotify={onNotify} onMessage={onMessage}/>:null}</div>:<p>Este story expirou, foi apagado ou não está disponível para sua conta.</p>}</Modal>:null}</section>
+  async function remove(){if(busy||!story)return;setBusy(true);try{await itextApi.deleteStory(story.id);closeStory();await refresh();onNotify('Story apagado.')}catch(issue){setError(issue.message)}finally{setBusy(false)}}
+  return <section className="stories-section" aria-label="Stories"><div className="stories-strip">{!authorId||authorId===user.id?<button className="story-circle story-create" onClick={()=>setCreating(true)}><span><Plus size={24}/></span><strong>Seu story</strong></button>:null}{people.map(person=><StoryCircle key={person.author_id} person={person} userId={user.id} onOpen={()=>{setSelected(person.id);setConfirmDelete(false)}}/>)}{authorId&&!rows.length?<p className="empty-inline">Sem stories ativos.</p>:null}</div>{error?<p className="chat-error" role="alert">{error}<button className="text-button" onClick={()=>void refresh().catch(issue=>setError(issue.message))}>Tentar novamente</button></p>:null}{creating?<StoryComposer onClose={()=>setCreating(false)} onPublished={async()=>{await refresh();onNotify('Story publicado por 24 horas.')}}/>:null}{selected?<Modal title={story?`Story de ${story.name}`:loading?'Carregando story…':'Story indisponível'} onClose={closeStory} size="story">{story?<div className="story-viewer"><div className="story-viewer-scroll">{error?<p className="chat-error" role="alert">{error}</p>:null}<div className="story-topline"><Avatar userId={story.author_id} src={story.avatar} alt={story.name} size="sm"/><span>{new Date(story.created_at).toLocaleString('pt-BR')}</span><div className="story-navigation"><button className="icon-button" aria-label="Story anterior" disabled={index<1} onClick={()=>{setSelected(ordered[index-1].id);setConfirmDelete(false)}}><ChevronLeft/></button><span>{index+1} de {rows.length}</span><button className="icon-button" aria-label="Próximo story" disabled={index===rows.length-1} onClick={()=>{setSelected(ordered[index+1].id);setConfirmDelete(false)}}><ChevronRight/></button>{story.author_id===user.id?<button className="icon-button" aria-label="Apagar story" onClick={()=>setConfirmDelete(true)}><Trash2 size={19}/></button>:null}</div></div><div className="story-media"><StoryCanvas type={story.media_type} url={story.url} text={story.text_content} background={story.background_color} font={story.font_style} caption={story.caption}/></div>{story.caption?<p className="story-caption">{story.caption}</p>:null}{confirmDelete?<div className="story-delete-confirm"><p>Apagar este story para todos?</p><button className="secondary-button" onClick={()=>setConfirmDelete(false)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={remove}>Apagar</button></div>:null}</div><StoryFooter story={story} user={user} busy={busy} onLike={like} onShare={share} onNotify={onNotify} onMessage={onMessage}/></div>:<p className="empty-inline" role="status">{loading?'Carregando story…':'Este story expirou, foi apagado ou não está disponível para sua conta.'}</p>}</Modal>:null}</section>
+}
+
+export function StoryFooter({story,user,busy,onLike,onShare,onNotify,onMessage}){
+ return <footer className="story-footer">{story.author_id!==user.id?<StoryReply key={story.id} story={story} user={user} onNotify={onNotify} onMessage={onMessage}/>:<p className="story-own-note">Seu story</p>}<div className="story-footer-actions"><button className={story.liked?'story-like is-liked':'story-like'} aria-pressed={story.liked} aria-label={story.liked?'Remover curtida do story':'Curtir story'} title="Curtir story" disabled={busy} onClick={onLike}><Heart size={24} fill={story.liked?'currentColor':'none'}/><span>{story.likes}</span></button><button type="button" className="icon-button story-share" aria-label="Compartilhar story" title="Compartilhar story" onClick={onShare}><Share2 size={23}/></button></div></footer>
+}
+
+export function StoryCircle({person,userId,onOpen}){
+ return <button className="story-circle" aria-label={`Abrir stories de ${person.name}`} onClick={onOpen}><span><Avatar src={person.avatar} alt=""/></span><strong>{person.author_id===userId?'Ver seus stories':person.name}</strong></button>
 }

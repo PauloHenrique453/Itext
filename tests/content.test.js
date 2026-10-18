@@ -19,3 +19,15 @@ test('comment threads retain exact reply targets, order children and survive hid
  assert.deepEqual(rows.map(row=>[row.id,row.depth]),[['root',0],['child',1],['nested',2],['orphan',0]])
  assert.equal(threadComments([{id:'a',parent_id:'b'},{id:'b',parent_id:'a'}]).length,2)
 })
+
+test('story share links contain only the story ID and never forward invitation keys, OAuth codes, signed URLs or fragments',async()=>{
+ const {storyAddress,storyIdFromSearch}=await import('../src/services/content.js')
+ const id='00000000-0000-0000-0000-000000000001'
+ const url=storyAddress(id,'https://itext-1b9da.web.app/?grupo=private&convite=secret&code=oauth&url=signed#token')
+ assert.equal(url,'https://itext-1b9da.web.app/?story='+id)
+ assert.equal(storyIdFromSearch(new URL(url).search),id)
+ assert.equal(storyIdFromSearch('?story=not-a-uuid'),null)
+ assert.equal(storyIdFromSearch('?perfil='+id),null)
+ assert.throws(()=>storyAddress('bad','https://itext-1b9da.web.app'))
+ assert.throws(()=>storyAddress(id,'javascript:alert(1)'))
+})

@@ -40,3 +40,10 @@ test('login errors remain actionable across auth layers and never echo authoriza
   assert.match(loginErrorMessage('access_denied'), /autorizado/)
   assert.equal(loginErrorMessage('unexpected server error with private-value'), 'Não foi possível concluir o login. Tente novamente.')
 })
+
+test('opening a shared story survives OAuth without accepting arbitrary redirect destinations',()=>{
+ const id='00000000-0000-0000-0000-000000000001'
+ const options=loginOptions('google','https://itext-1b9da.web.app','?story='+id+'&redirect_to=https://other.test&code=private')
+ assert.equal(options.redirectTo,'https://itext-1b9da.web.app/?story='+id)
+ assert.equal(readLoginCallback(options.redirectTo+'&code=one-time').cleaned,'/?story='+id)
+})
