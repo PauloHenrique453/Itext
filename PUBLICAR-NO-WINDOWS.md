@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7f5d269930782a953a5f06c6cfad0f8e5defac66.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/f1b579599ac126cae173aa0818ae5a91837fb9ea.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7f5d269930782a953a5f06c6cfad0f8e5defac66.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/f1b579599ac126cae173aa0818ae5a91837fb9ea.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -240,3 +240,12 @@ O bloco **Atualizar o Itext já publicado** acima agora inclui também esta revi
 Não há SQL novo para executar. **56 testes**, build, SSR e verificações estáticas passaram. A sessão não teve Browser disponível para validar cliques e aparência em aparelhos reais.
 
 Depois de **Deploy complete!**, abra o site e aceite a atualização (ou use Ctrl+F5). Confira: clicar na foto do círculo de story abre a mídia; os controles inferiores permitem comentar/curtir/compartilhar; o menu recolhe e expande sem perder navegação e conserva a escolha ao recarregar. No celular, confira os controles com o teclado aberto.
+
+
+## Avatar corrigido e nova interface dos stories
+
+O bloco **Atualizar o Itext já publicado** está apontado para a revisão que corrige o avatar esticado e reformula o story. Execute o bloco completo: ele baixa o código novo, guarda a cópia anterior e faz o deploy. Executar apenas `npm.cmd run deploy:firebase` usa os arquivos que já estão na sua pasta.
+
+O story tem um cartão vertical, foto circular e nome no topo, indicadores clicáveis, mídia em destaque, navegação discreta e ações na parte inferior. A criação ganhou opções com ícones e prévia. O celular usa a tela disponível; no computador o story fica centralizado. Nome e imagem continuam abrindo o perfil dentro da visualização; o círculo da lista abre o story.
+
+Build, verificações estáticas, SSR e testes focados passaram. Não foi possível testar o visual em Browser nesta sessão. Após **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5 e confira se o avatar continua circular, a foto/vídeo inteira aparece, o rodapé fica acessível com o teclado aberto e os segmentos/setas trocam o story. Não é preciso SQL ou instalar dependências outra vez.
