@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu também as atualizações de comentários/respostas, notificações, presença online e espaços com imagens e categorias. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
+O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de comentários/respostas, notificações, presença, espaços, curtidas rápidas, visualizador de fotos, temas e novos formatos de stories. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
 ## 1. Conferir o Node.js
 
@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/ef7d70efa82ad7466200ff43b6f004b227492f46.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3e48a9f78746c856a3b47ae5a9733bda114a959a.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/ef7d70efa82ad7466200ff43b6f004b227492f46.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3e48a9f78746c856a3b47ae5a9733bda114a959a.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -197,3 +197,32 @@ Esta versão reúne os recursos anteriores e os novos pedidos. Use o mesmo bloco
 A migração `20261018051650_comments_notifications_presence_spaces.sql` já foi aplicada ao banco. Não é preciso executar SQL ou cadastrar chaves outra vez. As notificações começam nas novas atividades reais; não foram inventadas notificações antigas. Ocultar curtidas no perfil não impede avisar ao autor que seu conteúdo foi curtido. O sistema de presença exige que as contas estejam usando esta versão.
 
 Passaram 48 testes, build, verificações estáticas e renderização SSR. Ainda precisa conferir em aparelhos e contas reais depois de **Deploy complete!**: siga os testes da seção correspondente em PUBLICAR-FORA-DO-CHATGPT.md. A publicação continua pelo seu PowerShell, onde está o login do Firebase. Não foi ativado serviço pago.
+
+
+## Nova versão: comentários corrigidos, fotos em tela cheia e temas
+
+O bloco **Atualizar o Itext já publicado** acima agora baixa a versão completa revisada desta atualização. Rode o bloco inteiro, e não somente `npm run deploy:firebase`: é preciso copiar o código novo antes de publicar.
+
+Inclui:
+
+- Comentários em janela sobre a página, sem o recorte do cartão, com botão X, lista rolável, carregamento ao descer e campo de resposta fixo.
+- Ajustes para celular, tablet, computador e telas grandes/TV pelo navegador; os controles de publicação continuam disponíveis nas telas pequenas.
+- Fotos em tela cheia com autor/perfil, Seguir, compartilhar, Comentar e curtir. Role para ver outras fotos reais da comunidade; X ou Escape retorna à página anterior.
+- Curtidas com resposta imediata, confirmação idempotente pelo banco e restauração em caso de erro.
+- Quatro temas em Configurações: Branco, Cinza grafite, Black e Comum; use Salvar preferências.
+- Vídeos de até 50 MB, sem limite artificial de duração. Arquivos maiores podem ser publicados por link de vídeo.
+- Player oficial para links completos reconhecidos do YouTube, TikTok e Instagram. O player depende da permissão da plataforma; links curtos não resolvidos e conteúdo privado podem exigir abrir o site original.
+- Stories de texto com fundos/fontes, foto, vídeo ou áudio; player de áudio com progresso e duração reais.
+
+A migração `20261018054035_media_viewer_themes_and_story_formats.sql` já foi aplicada ao seu Supabase. O bucket continua privado e o plano gratuito continua ativo. Não é preciso executar SQL novamente ou reenviar chaves. Os dados e a chave existente foram preservados.
+
+Passaram **54 testes**, build de produção, renderização SSR e verificações estáticas. A publicação no Firebase ainda precisa ser executada no seu PowerShell. Esta sessão não teve Browser disponível para testar cliques, tamanhos de tela, reprodução externa ou uploads em aparelhos reais.
+
+Após aparecer **Deploy complete!**, confira:
+
+1. Abra https://itext-1b9da.web.app, aceite Atualizar agora ou use Ctrl+F5 no computador.
+2. Abra os comentários de um post: role a lista, responda e feche com X. No celular, verifique se o teclado não cobre o campo.
+3. Abra uma foto: siga o autor, curta, comente, compartilhe, role para outras fotos e feche. O perfil abre tocando no nome/avatar.
+4. Troque o tema em Configurações, salve e recarregue para confirmar que permaneceu salvo.
+5. Publique um story de texto, outro de áudio e confira a reprodução. Teste um vídeo compatível abaixo de 50 MB e um link completo público das plataformas.
+6. Confira celular na vertical/horizontal, tablet e computador; em TV, use um navegador atualizado e confira foco/rolagem pelo controle ou teclado. O Itext continua sendo um site, sem aplicativo nativo de Smart TV.
