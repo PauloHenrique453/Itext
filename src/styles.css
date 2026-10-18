@@ -164,16 +164,26 @@ h1, h2, h3, .brand__name { font-family: Manrope, Inter, sans-serif; }
 /* Sidebar */
 .sidebar {
   height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  align-self: start;
   position: sticky;
   top: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
   padding: 30px 20px 25px;
   background: rgba(5, 13, 24, .34);
 }
 
-.sidebar__top { display: flex; flex-direction: column; align-items: stretch; }
+.sidebar__top { display: flex; flex: 0 0 auto; flex-direction: column; align-items: stretch; }
+.sidebar > .user-menu { flex: 0 0 auto; }
 .sidebar .brand-button { align-self: flex-start; margin: 0 10px 27px; }
 .sidebar__nav { display: grid; gap: 5px; }
 

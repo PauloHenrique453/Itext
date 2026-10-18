@@ -57,7 +57,7 @@ export default function Sidebar({ activeView, onNavigate, onCreate, user, unread
         </button>
       </div>
 
-      <button className="user-menu" onClick={() => onNavigate('profile')}>
+      <button className="user-menu" onClick={() => onNavigate('profile')} aria-label="Abrir meu perfil">
         <Avatar src={user.avatar} alt={user.name} />
         <span className="user-menu__copy">
           <strong>{user.name}</strong>
