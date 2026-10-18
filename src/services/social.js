@@ -9,6 +9,7 @@ const taxonomy = [
   ['criatividade', ['criativo','vídeo','foto','criador','arte']],
 ]
 const mediaCache = new Map()
+const storyMediaCache = new Map()
 const storagePrefix = 'itext-media:'
 function storedUrl(value) {
   if (typeof value !== 'string') return null
@@ -119,7 +120,7 @@ async function loadFeed(mode='chronological',{authorId,groupId}={}) {
     const page=spaces.pages.find((entry)=>entry.id===row.page_id)
     const interest=(row.categories||[]).filter((entry)=>user.interests.includes(entry))
     const relationship=user.following.includes(row.author_id)
-    return {id:row.id,author:author.name,authorId:author.id,handle:author.handle,avatar:author.avatar,verified:false,time:timeAgo(row.created_at),createdAt:row.created_at,text:row.text,code:row.code,media:await Promise.all((row.media||[]).map(async(item)=>({...item,url:await displayUrl(item.url)}))),tags:row.tags,categories:row.categories,likes:counts.find((entry)=>entry.id===row.id)?.likes||0,comments:counts.find((entry)=>entry.id===row.id)?.comments||0,liked:postLikes.some((entry)=>entry.user_id===user.id),commentsList:postComments.map((entry)=>({id:entry.id,text:entry.text,author:byId.get(entry.author_id)?.name||'Membro do Itext'})),groupId:row.group_id,pageId:row.page_id,context:group?{type:'group',name:group.name}:page?{type:'page',name:page.name}:null,kind:row.code?'game':row.media?.some((entry)=>entry.type==='video')?'video':'post',reason:interest.length?`combina com seu interesse em ${interest[0]}`:relationship?`você segue ${author.name}`:'foi publicada na comunidade',score:interest.length*2+(relationship?2:0)+Math.exp(-(Date.now()-new Date(row.created_at))/172800000)}
+    return {id:row.id,author:author.name,authorId:author.id,handle:author.handle,avatar:author.avatar,verified:false,time:timeAgo(row.created_at),createdAt:row.created_at,editedAt:row.edited_at,text:row.text,code:row.code,media:await Promise.all((row.media||[]).map(async(item)=>({...item,url:await displayUrl(item.url)}))),tags:row.tags,categories:row.categories,likes:counts.find((entry)=>entry.id===row.id)?.likes||0,comments:counts.find((entry)=>entry.id===row.id)?.comments||0,liked:postLikes.some((entry)=>entry.user_id===user.id),commentsList:postComments.map((entry)=>({id:entry.id,text:entry.text,author:byId.get(entry.author_id)?.name||'Membro do Itext'})),groupId:row.group_id,pageId:row.page_id,context:group?{type:'group',name:group.name}:page?{type:'page',name:page.name}:null,kind:row.code?'game':row.media?.some((entry)=>entry.type==='video')?'video':'post',reason:interest.length?`combina com seu interesse em ${interest[0]}`:relationship?`você segue ${author.name}`:'foi publicada na comunidade',score:interest.length*2+(relationship?2:0)+Math.exp(-(Date.now()-new Date(row.created_at))/172800000)}
   }))
   if (mode==='personalized') posts.sort((a,b)=>b.score-a.score)
   return {posts}
@@ -145,6 +146,52 @@ async function dating() {
   return {profile:{bio:own.bio,birthDate:own.birth_date,city:own.city,latitude:own.latitude,longitude:own.longitude,interests:own.interests,photos:await Promise.all(own.photos.map(displayUrl)),lookingFor:own.looking_for,discoveryEnabled:own.discovery_enabled},candidates:await Promise.all(cards.filter((row)=>!row.swiped).map(asCard)),matches:await Promise.all(cards.filter((row)=>row.matched).map(asCard))}
 }
 export const socialApi={
+  async stories(authorId=null) {
+    const user=await identity()
+    let query=supabase.from('itext_stories').select('*').order('created_at',{ascending:false}).limit(100)
+    if(authorId)query=query.eq('author_id',authorId)
+    const rows=await result(query)
+    if(!rows.length)return []
+    const [authors,counts,likes]=await Promise.all([
+      result(supabase.from('itext_public_profiles').select('id,name,avatar_url').in('id',[...new Set(rows.map(row=>row.author_id))])),
+      result(supabase.from('itext_story_counts').select('*').in('id',rows.map(row=>row.id))),
+      result(supabase.from('itext_story_likes').select('story_id').eq('user_id',user.id).in('story_id',rows.map(row=>row.id))),
+    ])
+    return Promise.all(rows.map(async row=>{
+      const author=authors.find(person=>person.id===row.author_id)
+      let cached=storyMediaCache.get(row.media_path)
+      if(!cached||cached.expires<Date.now()) {
+        const signed=await supabase.storage.from('itext-media').createSignedUrl(row.media_path,Math.max(1,Math.min(300,Math.floor((new Date(row.expires_at).getTime()-Date.now())/1000))))
+        cached={url:signed.error?null:signed.data.signedUrl,expires:Math.min(Date.now()+270000,new Date(row.expires_at).getTime())}
+        if(cached.url)storyMediaCache.set(row.media_path,cached)
+      }
+      return {...row,url:cached.url,name:author?.name||'Membro do Itext',avatar:await displayUrl(author?.avatar_url),likes:counts.find(count=>count.id===row.id)?.likes||0,liked:likes.some(like=>like.story_id===row.id)}
+    }))
+  },
+  async createStory(file,caption='') {
+    if(!['image','video'].includes(file?.type.split('/')[0]))throw new Error('Escolha uma foto ou um vídeo.')
+    const user=await identity()
+    const upload=await this.uploadMedia(file)
+    return result(supabase.from('itext_stories').insert({author_id:user.id,media_path:upload.media.storagePath,media_type:upload.media.type,caption:caption.trim().slice(0,280)}).select('id').single())
+  },
+  toggleStoryLike:(id)=>toggle('itext_story_likes',{story_id:id,user_id:'@me'}),
+  deleteStory:(id)=>result(supabase.rpc('itext_delete_story',{story_id:id})),
+  async profilePhotos(profileId,cursor=null) {
+    await identity()
+    const rows=await result(supabase.rpc('itext_profile_photos',{profile_id:profileId,before_at:cursor?.created_at||null,before_id:cursor?.post_id||null}))
+    return {rows:await Promise.all(rows.map(async row=>({...row,media:await Promise.all(row.media.map(async item=>({...item,url:await displayUrl(item.url)})))}))),hasMore:rows.length===40,cursor:rows.at(-1)||null}
+  },
+  async editPost(id,payload) {
+    const user=await identity()
+    const text=payload.text?.trim()||''
+    const code=payload.code&&Object.values(payload.code).some(value=>value.trim())?payload.code:null
+    const media=(payload.media||[]).map(entry=>{const url=entry.storagePath?storagePrefix+entry.storagePath:storedUrl(entry.url);return {...entry,url,storagePath:url?.startsWith(storagePrefix)?url.slice(storagePrefix.length):null}})
+    return result(supabase.from('itext_posts').update({text,code,media,...classify(text,code)}).eq('id',id).eq('author_id',user.id).select('id').single())
+  },
+  async deletePost(id) {
+    const user=await identity()
+    return result(supabase.from('itext_posts').delete().eq('id',id).eq('author_id',user.id).select('id').single())
+  },
   async likedPosts(profileId,after=null) {
     await identity()
     const visible=await result(supabase.rpc('itext_likes_visible',{profile_id:profileId}))

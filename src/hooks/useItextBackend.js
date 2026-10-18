@@ -56,6 +56,8 @@ export function useItextBackend() {
   return {
     ...state, userId: activeUserId, feedMode, setFeedMode, loading, error, clearError: () => setError(''), refresh,
     publishPost: (payload) => run(() => itextApi.createPost({ ...payload, userId: activeUserId })),
+    editPost: (id,payload) => run(() => itextApi.editPost(id,payload)),
+    deletePost: (id) => run(() => itextApi.deletePost(id)),
     toggleLike: (postId) => run(() => itextApi.toggleLike(postId, activeUserId)),
     addComment: (postId, text) => run(() => itextApi.addComment(postId, activeUserId, text)),
     savePreferences: (interests, onboardingComplete) => run(() => itextApi.savePreferences(activeUserId, interests, onboardingComplete)),

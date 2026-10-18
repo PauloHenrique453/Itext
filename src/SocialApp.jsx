@@ -147,14 +147,14 @@ export default function SocialApp() {
   switch (activeView) {
     case 'explore': view = <ExploreView key={searchQuery} initialQuery={searchQuery} onNavigate={navigate} onFindPeople={() => navigate('people')} posts={backend.posts} profiles={backend.profiles} communities={backend.communities} pages={backend.pages} user={backend.user} />; break
     case 'people': view = <PeopleView key={peopleFilter} initialFilter={peopleFilter} user={backend.user} onFollow={backend.toggleProfileFollow} onMessage={startConversation} onNotify={notify} />; break
-    case 'messages': view = <MessagesView user={backend.user} onNotify={notify} initialPerson={conversationTarget} onConfigureSecurity={() => navigate('settings')} onFindPeople={() => navigate('people')} />; break
+    case 'messages': view = <MessagesView onSocialChange={backend.refresh} user={backend.user} onNotify={notify} initialPerson={conversationTarget} onConfigureSecurity={() => navigate('settings')} onFindPeople={() => navigate('people')} />; break
     case 'shorts': view = <ShortsView posts={backend.posts} />; break
     case 'dating': view = <DatingView user={backend.user} data={backend.dating} onLoad={backend.getDating} onSave={backend.saveDatingProfile} onSwipe={backend.swipeDatingProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
     case 'communities': view = <CommunitiesView communities={backend.communities} onCreateCommunity={backend.createCommunity} onOpenGroup={backend.openGroup} onJoinGroup={backend.joinGroup} onApproveMember={backend.approveGroupMember} onNotify={notify} />; break
     case 'pages': view = <PagesView pages={backend.pages} onCreatePage={backend.createPage} onToggleFollow={backend.togglePageFollow} onNotify={notify} />; break
-    case 'profile': view = <ProfileView onPeople={() => openPeople('followers')} posts={backend.ownPosts} user={backend.user} communities={backend.communities} pages={backend.pages} onNavigate={navigate} onSaveProfile={backend.saveProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
+    case 'profile': view = <ProfileView onPeople={() => openPeople('followers')} posts={backend.ownPosts} user={backend.user} communities={backend.communities} pages={backend.pages} onNavigate={navigate} onSaveProfile={backend.saveProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} onEditPost={backend.editPost} onDeletePost={backend.deletePost} onMessage={startConversation} />; break
     case 'settings': view = <SettingsView user={backend.user} onSave={backend.saveSettings} onSaveInterests={backend.savePreferences} onNotify={notify} />; break
-    default: view = <FeedView posts={backend.posts} user={backend.user} communities={backend.communities} pages={backend.pages} feedMode={backend.feedMode} setFeedMode={backend.setFeedMode} onPublish={backend.publishPost} onUploadMedia={backend.uploadMedia} onToggleLike={toggleLike} onAddComment={addComment} onNotify={notify} onSearch={search} />
+    default: view = <FeedView posts={backend.posts} user={backend.user} communities={backend.communities} pages={backend.pages} feedMode={backend.feedMode} setFeedMode={backend.setFeedMode} onPublish={backend.publishPost} onUploadMedia={backend.uploadMedia} onToggleLike={toggleLike} onAddComment={addComment} onNotify={notify} onSearch={search} onEditPost={backend.editPost} onDeletePost={backend.deletePost} onMessage={startConversation} />
   }
 
   const hideRightRail = wideViews.has(activeView)

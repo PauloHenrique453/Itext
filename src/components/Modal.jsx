@@ -1,28 +1,35 @@
 import { X } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
-export default function Modal({ title, children, onClose, size = 'md' }) {
-  useEffect(() => {
-    function closeOnEscape(event) {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', closeOnEscape)
+const dialogs=[]
+export default function Modal({title,children,onClose,size='md'}) {
+  const root=useRef(null)
+  const close=useRef(onClose)
+  close.current=onClose
+  useEffect(()=>{
+    const dialog=root.current
+    const previous=document.activeElement
+    dialogs.push(dialog)
     document.body.classList.add('has-modal')
-    return () => {
-      document.removeEventListener('keydown', closeOnEscape)
-      document.body.classList.remove('has-modal')
+    const focusable=()=>[...dialog.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),a[href],[tabindex="0"]')].filter(element=>element.getClientRects().length)
+    focusable()[0]?.focus()
+    function handleKey(event){
+      if(dialogs.at(-1)!==dialog)return
+      if(event.key==='Escape'){event.stopPropagation();close.current()}
+      if(event.key==='Tab'){
+        const elements=focusable(),first=elements[0],last=elements.at(-1)
+        if(!first){event.preventDefault();dialog.focus()}
+        else if(event.shiftKey&&(document.activeElement===first||!dialog.contains(document.activeElement))){event.preventDefault();last.focus()}
+        else if(!event.shiftKey&&(document.activeElement===last||!dialog.contains(document.activeElement))){event.preventDefault();first.focus()}
+      }
     }
-  }, [onClose])
-
-  return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title}>
-        <header>
-          <h2>{title}</h2>
-          <button className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20} /></button>
-        </header>
-        {children}
-      </section>
-    </div>
-  )
+    document.addEventListener('keydown',handleKey)
+    return()=>{
+      document.removeEventListener('keydown',handleKey)
+      const index=dialogs.indexOf(dialog);if(index>=0)dialogs.splice(index,1)
+      if(!dialogs.length)document.body.classList.remove('has-modal')
+      if(previous?.isConnected)previous.focus()
+    }
+  },[])
+  return <div className="modal-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&dialogs.at(-1)===root.current)onClose()}}><section ref={root} className={`modal modal--${size}`} role="dialog" aria-modal="true" aria-label={title} tabIndex={-1}><header><h2>{title}</h2><button type="button" className="icon-button" onClick={onClose} aria-label="Fechar"><X size={20}/></button></header>{children}</section></div>
 }

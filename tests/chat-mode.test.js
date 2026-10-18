@@ -25,3 +25,10 @@ test('mixed history displays standard text but never exposes ciphertext as reada
  assert.equal(restored[0].plaintext,'Mensagem recuperada');assert.equal(restored[1].plaintext,'Conversa normal')
  await assert.rejects(messageSession('alice',false,{decrypt:async()=>{throw new Error('invalid signature')}}).decrypt(rows))
 })
+
+test('ordinary replies retain the selected target; a deleted message always displays a tombstone instead of stale body',async()=>{
+ const row=standardMessage('alice','bob','resposta','id',{reply_to:'target',story_id:'story'})
+ assert.equal(row.reply_to,'target');assert.equal(row.story_id,'story')
+ const [deleted]=await messageSession('alice',false,null).decrypt([{...row,body:'conteúdo anterior',deleted_at:new Date().toISOString()}])
+ assert.equal(deleted.plaintext,'Mensagem apagada');assert.ok(!deleted.plaintext.includes('anterior'))
+})

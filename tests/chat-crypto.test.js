@@ -21,3 +21,19 @@ test('real OpenPGP encrypts for participants and creator; stranger, wrong code a
   const legacy = await decryptMessage({ encryption_version: 0, body: 'antiga' }, keys.sender)
   assert.equal(legacy.legacy, true)
 })
+
+test('protected replies bind the exact message and story references, retain edit context and reject swapped references',async()=>{
+ const code=recoveryCode(),vault=await createVault('one',code),key=await unlockVault(vault,code)
+ const row={id:crypto.randomUUID(),sender_id:'one',recipient_id:'two',owner_id:'one',body:'Resposta protegida',reply_to:crypto.randomUUID(),story_id:crypto.randomUUID()}
+ const records={one:vault,two:vault}
+ const protectedRow=await encryptMessage(row,records,key)
+ assert.equal(protectedRow.reply_to,row.reply_to);assert.equal(protectedRow.story_id,row.story_id)
+ assert.equal((await decryptMessage(protectedRow,key,vault)).plaintext,row.body)
+ for(const field of ['reply_to','story_id']){
+  await assert.rejects(decryptMessage({...protectedRow,[field]:crypto.randomUUID()},key,vault),/não conferem/)
+  await assert.rejects(decryptMessage({...protectedRow,[field]:null},key,vault),/não conferem/)
+ }
+ const edited=await encryptMessage({...row,body:'Resposta editada'},records,key)
+ assert.equal((await decryptMessage(edited,key,vault)).plaintext,'Resposta editada')
+ assert.equal(edited.id,protectedRow.id);assert.equal(edited.reply_to,protectedRow.reply_to)
+})

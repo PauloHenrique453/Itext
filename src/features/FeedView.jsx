@@ -5,6 +5,8 @@ import {
 } from 'lucide-react'
 import Avatar from '../components/Avatar.jsx'
 import Modal from '../components/Modal.jsx'
+import PostManage from './PostManage.jsx'
+import Stories from './Stories.jsx'
 
 const starterCode = { html: '', css: '', js: '' }
 
@@ -108,7 +110,7 @@ function CodePreview({ code, onRun }) {
   return <div className="code-post"><div className="code-post__toolbar"><div className="code-tabs" role="tablist">{['html', 'css', 'js'].map((file) => <button key={file} className={activeFile === file ? 'is-active' : ''} onClick={() => setActiveFile(file)}>{file.toUpperCase()}</button>)}</div><button className="run-button" onClick={() => onRun(code)}><Play size={14} fill="currentColor" /> Jogar/executar</button></div><pre><code>{code[activeFile] || ''}</code></pre><div className="code-post__status"><span /> Código pronto para executar</div></div>
 }
 
-function PostCard({ post, user, onToggleLike, onAddComment, onRunCode, onTag, onNotify }) {
+function PostCard({ post, user, onToggleLike, onAddComment, onRunCode, onTag, onNotify, onEditPost, onDeletePost, onUploadMedia }) {
   const [liking, setLiking] = useState(false)
   async function like() { if (liking) return; setLiking(true); try { await onToggleLike(post.id) } finally { setLiking(false) } }
   const [showComments, setShowComments] = useState(false)
@@ -122,7 +124,7 @@ function PostCard({ post, user, onToggleLike, onAddComment, onRunCode, onTag, on
     } catch (error) { if (error.name !== 'AbortError') onNotify('Não foi possível compartilhar. Tente novamente.') }
   }
   return <article className="post-card" id={`post-${post.id}`}><Avatar src={post.avatar} alt={post.author} /><div className="post-card__body">
-    <header className="post-card__header"><div><strong>{post.author}</strong>{post.verified ? <CheckCircle2 className="verified" size={15} fill="currentColor" /> : null}<span>{post.handle} · {post.time}</span></div></header>
+    <header className="post-card__header"><div><strong>{post.author}</strong>{post.verified ? <CheckCircle2 className="verified" size={15} fill="currentColor" /> : null}<span>{post.handle} · {post.time}{post.editedAt?' · editado':''}</span></div>{post.authorId===user.id?<PostManage post={post} onEdit={onEditPost} onDelete={onDeletePost} onUploadMedia={onUploadMedia} onNotify={onNotify}/>:null}</header>
     {post.context ? <span className="post-context">{post.context.type === 'group' ? 'No grupo' : 'Na página'}: {post.context.name}</span> : null}
     {post.text ? <p className="post-card__text">{post.text}</p> : null}
     {post.reason ? <p className="feed-reason"><Sparkles size={12} /> Você vê isto porque {post.reason}.</p> : null}
@@ -134,7 +136,7 @@ function PostCard({ post, user, onToggleLike, onAddComment, onRunCode, onTag, on
   </div></article>
 }
 
-export default function FeedView({ posts, user, communities, pages, feedMode, setFeedMode, onPublish, onUploadMedia, onToggleLike, onAddComment, onNotify, onSearch }) {
+export default function FeedView({ posts, user, communities, pages, feedMode, setFeedMode, onPublish, onUploadMedia, onToggleLike, onAddComment, onNotify, onSearch, onEditPost, onDeletePost, onMessage }) {
   const [previewCode, setPreviewCode] = useState(null)
   const [isPublishing, setIsPublishing] = useState(false)
   useEffect(() => {
@@ -143,5 +145,5 @@ export default function FeedView({ posts, user, communities, pages, feedMode, se
   }, [posts])
   async function publish(payload) { setIsPublishing(true); try { const result = await onPublish(payload); onNotify(result?.classification?.hasCode ? 'Jogo ou código publicado.' : 'Publicação enviada para a rede.'); } catch (error) { onNotify(error.message); throw error } finally { setIsPublishing(false) } }
   const srcDoc = previewCode ? `<!doctype html><html><head><style>${previewCode.css}</style></head><body>${previewCode.html}<script>${previewCode.js}<\/script></body></html>` : ''
-  return <main className="feed-view"><header className="feed-header"><h1>Seu mundo, em movimento.</h1><div className="feed-tabs" role="tablist"><button className={feedMode === 'personalized' ? 'is-active' : ''} onClick={() => setFeedMode('personalized')}>Para você</button><button className={feedMode === 'chronological' ? 'is-active' : ''} onClick={() => setFeedMode('chronological')}>Recentes</button><button className={feedMode === 'following' ? 'is-active' : ''} onClick={() => setFeedMode('following')}>Seguindo</button></div></header><div className="feed-content"><Composer user={user} communities={communities} pages={pages} onPublish={publish} onUploadMedia={onUploadMedia} isPublishing={isPublishing} /><div className="posts-list">{posts.length ? posts.map((post) => <PostCard key={post.id} post={post} user={user} onToggleLike={onToggleLike} onAddComment={onAddComment} onRunCode={setPreviewCode} onTag={onSearch} onNotify={onNotify} />) : <div className="profile-empty"><h2>{feedMode === 'following' ? 'Ainda não há publicações de pessoas que você segue.' : 'Ainda não há publicações.'}</h2><p>{feedMode === 'following' ? 'Abra Pessoas para seguir perfis e acompanhar suas publicações.' : 'As publicações da comunidade aparecerão aqui.'}</p></div>}</div></div>{previewCode ? <Modal title="Preview do código" onClose={() => setPreviewCode(null)} size="lg"><div className="preview-shell"><div className="preview-shell__bar"><span /><span /><span /><small>Ambiente isolado do Itext</small></div><iframe title="Resultado do código" sandbox="allow-scripts" srcDoc={srcDoc} /></div></Modal> : null}</main>
+  return <main className="feed-view"><header className="feed-header"><h1>Seu mundo, em movimento.</h1><div className="feed-tabs" role="tablist"><button className={feedMode === 'personalized' ? 'is-active' : ''} onClick={() => setFeedMode('personalized')}>Para você</button><button className={feedMode === 'chronological' ? 'is-active' : ''} onClick={() => setFeedMode('chronological')}>Recentes</button><button className={feedMode === 'following' ? 'is-active' : ''} onClick={() => setFeedMode('following')}>Seguindo</button></div></header><div className="feed-content"><Stories user={user} onNotify={onNotify} onMessage={onMessage}/><Composer user={user} communities={communities} pages={pages} onPublish={publish} onUploadMedia={onUploadMedia} isPublishing={isPublishing} /><div className="posts-list">{posts.length ? posts.map((post) => <PostCard key={post.id} post={post} user={user} onToggleLike={onToggleLike} onAddComment={onAddComment} onRunCode={setPreviewCode} onTag={onSearch} onNotify={onNotify} onEditPost={onEditPost} onDeletePost={onDeletePost} onUploadMedia={onUploadMedia} />) : <div className="profile-empty"><h2>{feedMode === 'following' ? 'Ainda não há publicações de pessoas que você segue.' : 'Ainda não há publicações.'}</h2><p>{feedMode === 'following' ? 'Abra Pessoas para seguir perfis e acompanhar suas publicações.' : 'As publicações da comunidade aparecerão aqui.'}</p></div>}</div></div>{previewCode ? <Modal title="Preview do código" onClose={() => setPreviewCode(null)} size="lg"><div className="preview-shell"><div className="preview-shell__bar"><span /><span /><span /><small>Ambiente isolado do Itext</small></div><iframe title="Resultado do código" sandbox="allow-scripts" srcDoc={srcDoc} /></div></Modal> : null}</main>
 }

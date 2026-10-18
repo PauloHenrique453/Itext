@@ -22,6 +22,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/migrations/20261017223908_improve_social_and_chat.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018022252_profile_likes_privacy.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018040725_optional_chat_protection.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261018044842_stories_requests_and_message_actions.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -66,6 +67,9 @@ test('free Supabase storage uses owner uploads and enforces private group access
   await db.query('insert into public.itext_posts(author_id,group_id,media) values($1,$2,$3)',[ONE,group,JSON.stringify([{storagePath:path,url:`itext-media:${path}`,type:'image'}])])
   await as(db,TWO)
   assert.equal((await db.query('select * from storage.objects')).rows.length,0)
+  assert.equal((await db.query('select * from public.itext_profile_photos($1)',[ONE])).rows.length,0)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[TWO,ONE])
+  assert.equal((await db.query('select * from public.itext_profile_photos($1)',[ONE])).rows.length,0)
   await assert.rejects(db.query('update public.chat_profiles set avatar_url=$1 where id=$2',[`itext-media:${path}`,TWO]))
   await assert.rejects(db.query('insert into public.itext_posts(author_id,media) values($1,$2)',[TWO,JSON.stringify([{storagePath:path,type:'image'}])]))
   await assert.rejects(db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1)",[`${ONE}/spoof.png`]))
@@ -295,5 +299,172 @@ test('standard chats work without key setup; opt-in encryption requires both par
   await as(db)
   await assert.rejects(db.query('select * from public.itext_chat_preferences'))
   await assert.rejects(db.query('select * from public.direct_messages'))
+ }finally{await db.close()}
+})
+
+test('unknown messages are private requests until accepted or either direction follows; clearing is per user',async()=>{
+ const db=await setup()
+ try{
+  await as(db,TWO)
+  const mid=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Oi') returning id",[TWO,THREE])).rows[0].id
+  assert.equal((await db.query('select unknown from public.itext_chat_inbox')).rows[0].unknown,false)
+  await as(db,THREE)
+  let inbox=(await db.query('select * from public.itext_chat_inbox')).rows[0]
+  assert.equal(inbox.unknown,true);assert.equal(inbox.unread,1)
+  await db.query("select public.itext_conversation_action($1,'accept')",[TWO])
+  assert.equal((await db.query('select unknown from public.itext_chat_inbox')).rows[0].unknown,false)
+  await assert.rejects(db.query('update public.itext_conversation_settings set cleared_at=now()'))
+  await db.query("select public.itext_conversation_action($1,'clear')",[TWO])
+  assert.equal((await db.query('select * from public.itext_chat_inbox')).rows.length,0)
+  assert.equal((await db.query('select * from public.direct_messages where id=$1',[mid])).rows.length,0)
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.direct_messages where id=$1',[mid])).rows.length,1)
+  await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Nova mensagem')",[TWO,THREE])
+  await as(db,THREE)
+  assert.equal((await db.query('select * from public.itext_chat_inbox')).rows[0].unread,1)
+  assert.equal((await db.query('select * from public.direct_messages')).rows.length,1)
+  await as(db,ONE)
+  await db.query('insert into public.itext_follows(follower_id,following_id) values($1,$2)',[ONE,THREE])
+  await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Seguidor')",[ONE,THREE])
+  await as(db,THREE)
+  assert.equal((await db.query('select unknown from public.itext_chat_inbox where partner_id=$1',[ONE])).rows[0].unknown,false)
+ }finally{await db.close()}
+})
+
+test('chat-only blocks stop messaging but preserve posts; full blocks preserve only the profile photo gallery exception',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  await db.query("update public.chat_profiles set bio='Bio privada ao bloquear',avatar_url='itext-media:'||$1||'/avatar.png',likes_public=true where id=$1",[ONE])
+  const media=[{type:'image',storagePath:ONE+'/photo.png',url:'itext-media:'+ONE+'/photo.png'},{type:'video',storagePath:ONE+'/video.mp4',url:'itext-media:'+ONE+'/video.mp4'}]
+  const post=(await db.query("insert into public.itext_posts(author_id,text,media) values($1,'Legenda escondida',$2) returning id",[ONE,JSON.stringify(media)])).rows[0].id
+  await as(db,TWO)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'chat')",[TWO,ONE])
+  assert.equal((await db.query('select * from public.itext_posts where id=$1',[post])).rows.length,1)
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Não deve enviar')",[TWO,ONE]))
+  await db.query("update public.itext_blocks set scope='all' where blocker_id=$1 and blocked_id=$2",[TWO,ONE])
+  assert.equal((await db.query('select * from public.itext_posts where id=$1',[post])).rows.length,0)
+  await assert.rejects(db.query('insert into public.itext_likes(post_id,user_id) values($1,$2)',[post,TWO]))
+  await assert.rejects(db.query("insert into public.itext_comments(post_id,author_id,text) values($1,$2,'Não permitido')",[post,TWO]))
+  const person=(await db.query('select * from public.itext_public_profiles where id=$1',[ONE])).rows[0]
+  assert.equal(person.bio,'');assert.ok(person.avatar_url)
+  const photos=(await db.query('select * from public.itext_profile_photos($1)',[ONE])).rows
+  assert.equal(photos.length,1);assert.equal(photos[0].media.length,1);assert.equal(photos[0].media[0].type,'image');assert.equal('text' in photos[0],false)
+  assert.equal((await db.query('select public.itext_media_readable($1) as visible',[ONE+'/photo.png'])).rows[0].visible,true)
+  assert.equal((await db.query('select public.itext_media_readable($1) as visible',[ONE+'/video.mp4'])).rows[0].visible,false)
+  assert.equal((await db.query('select public.itext_media_readable($1) as visible',[ONE+'/avatar.png'])).rows[0].visible,true)
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.itext_blocks')).rows.length,0)
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Reverso bloqueado')",[ONE,TWO]))
+  await as(db,TWO)
+  await db.query('delete from public.itext_blocks where blocker_id=$1 and blocked_id=$2',[TWO,ONE])
+  await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Desbloqueado')",[TWO,ONE])
+ }finally{await db.close()}
+})
+
+test('post edits and deletion are author-only and cannot change ownership or use foreign uploads',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const id=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Antes') returning id",[ONE])).rows[0].id
+  await as(db,TWO)
+  await db.query("update public.itext_posts set text='Falso' where id=$1",[id])
+  await db.query('delete from public.itext_posts where id=$1',[id])
+  await as(db,ONE)
+  assert.equal((await db.query('select text from public.itext_posts where id=$1',[id])).rows[0].text,'Antes')
+  await assert.rejects(db.query('update public.itext_posts set author_id=$1 where id=$2',[TWO,id]))
+  await assert.rejects(db.query('update public.itext_posts set media=$1 where id=$2',[JSON.stringify([{storagePath:TWO+'/stolen.png'}]),id]))
+  await db.query("update public.itext_posts set text='Depois' where id=$1",[id])
+  assert.ok((await db.query('select edited_at from public.itext_posts where id=$1',[id])).rows[0].edited_at)
+  await db.query('delete from public.itext_posts where id=$1',[id])
+  assert.equal((await db.query('select * from public.itext_posts where id=$1',[id])).rows.length,0)
+ }finally{await db.close()}
+})
+
+test('message ownership, reply context, reactions and two deletion modes are enforced in Postgres',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const first=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Original') returning id",[ONE,TWO])).rows[0].id
+  const outside=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body) values($1,$2,'Outra conversa') returning id",[ONE,THREE])).rows[0].id
+  await as(db,TWO)
+  await assert.rejects(db.query("select public.itext_message_action($1,'edit','Falso',0::smallint,null)",[first]))
+  await assert.rejects(db.query("select public.itext_message_action($1,'delete')",[first]))
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,reply_to) values($1,$2,'Resposta falsa',$3)",[TWO,ONE,outside]))
+  await db.query("insert into public.direct_messages(sender_id,recipient_id,body,reply_to) values($1,$2,'Resposta',$3)",[TWO,ONE,first])
+  await db.query('insert into public.itext_message_reactions(message_id,user_id) values($1,$2)',[first,TWO])
+  await assert.rejects(db.query('insert into public.itext_message_reactions(message_id,user_id) values($1,$2)',[outside,TWO]))
+  await assert.rejects(db.query('update public.direct_messages set body=$1 where id=$2',['Sem RPC',first]))
+  await as(db,ONE)
+  await db.query("select public.itext_message_action($1,'edit','Editada',0::smallint,null)",[first])
+  assert.equal((await db.query('select body from public.direct_messages where id=$1',[first])).rows[0].body,'Editada')
+  await as(db,TWO)
+  await db.query("select public.itext_message_action($1,'hide')",[first])
+  assert.equal((await db.query('select * from public.direct_messages where id=$1',[first])).rows.length,0)
+  await as(db,ONE)
+  assert.equal((await db.query('select * from public.direct_messages where id=$1',[first])).rows.length,1)
+  await db.query("select public.itext_message_action($1,'delete')",[first])
+  const deleted=(await db.query('select * from public.direct_messages where id=$1',[first])).rows[0]
+  assert.ok(deleted.deleted_at);assert.equal(deleted.body,'Mensagem apagada')
+  assert.equal((await db.query('select * from public.itext_message_reactions where message_id=$1',[first])).rows.length,0)
+  assert.ok((await db.query('select reaction_updated_at from public.direct_messages where id=$1',[first])).rows[0].reaction_updated_at)
+  await assert.rejects(db.query('update public.direct_messages set reaction_updated_at=now() where id=$1',[first]))
+  await as(db,THREE)
+  await assert.rejects(db.query("select public.itext_message_action($1,'hide')",[first]))
+ }finally{await db.close()}
+})
+
+test('stories require own uploaded media, expire on the server and replies go only to the actual story owner',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const path=ONE+'/story.png'
+  await db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1)",[path])
+  const story=(await db.query("insert into public.itext_stories(author_id,media_path,media_type) values($1,$2,'image') returning id",[ONE,path])).rows[0].id
+  await assert.rejects(db.query("insert into public.itext_stories(author_id,media_path,media_type) values($1,$2,'image')",[ONE,THREE+'/foreign.png']))
+  await assert.rejects(db.query("insert into public.itext_stories(author_id,media_path,media_type,expires_at) values($1,$2,'image',now()+interval '50 hours')",[ONE,path]))
+  await as(db,TWO)
+  await db.query('insert into public.itext_story_likes(story_id,user_id) values($1,$2)',[story,TWO])
+  await db.query("insert into public.direct_messages(sender_id,recipient_id,body,story_id) values($1,$2,'Comentário privado',$3)",[TWO,ONE,story])
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,story_id) values($1,$2,'Dono falso',$3)",[TWO,THREE,story]))
+  await as(db,THREE)
+  assert.equal((await db.query('select likes from public.itext_story_counts where id=$1',[story])).rows[0].likes,1)
+  assert.equal((await db.query('select * from public.itext_story_likes')).rows.length,0)
+  await as(db,ONE)
+  assert.equal((await db.query('select story_id from public.direct_messages')).rows[0].story_id,story)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'chat')",[ONE,TWO])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_stories where id=$1',[story])).rows.length,1)
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,story_id) values($1,$2,'Bloqueado',$3)",[TWO,ONE,story]))
+  await as(db,ONE)
+  await db.query("update public.itext_blocks set scope='all' where blocker_id=$1 and blocked_id=$2",[ONE,TWO])
+  await as(db,TWO)
+  assert.equal((await db.query('select * from public.itext_stories')).rows.length,0)
+  await db.exec("reset role;select set_config('request.jwt.claim.sub','',false)")
+  await db.query("update public.itext_stories set created_at=now()-interval '25 hours',expires_at=now()-interval '1 hour' where id=$1",[story])
+  await as(db,THREE)
+  assert.equal((await db.query('select * from public.itext_stories')).rows.length,0)
+  await assert.rejects(db.query("insert into public.direct_messages(sender_id,recipient_id,body,story_id) values($1,$2,'Expirado',$3)",[THREE,ONE,story]))
+  await assert.rejects(db.query('select public.itext_delete_story($1)',[story]))
+  await as(db,ONE)
+  await db.query('select public.itext_delete_story($1)',[story])
+ }finally{await db.close()}
+})
+
+
+test('new message and story API tables deny anonymous reads and all metadata-only mutations are constrained',async()=>{
+ const db=await setup()
+ try{
+  await as(db)
+  for(const table of ['itext_blocks','itext_stories','itext_story_likes','itext_story_counts','itext_message_hides','itext_message_reactions','itext_conversation_settings']){
+   await assert.rejects(db.query(`select * from public.${table} limit 0`))
+  }
+  await as(db,TWO)
+  for(const rpc of ["select public.itext_message_action(null,'delete')","select public.itext_conversation_action(null,'accept')",'select public.itext_delete_story(null)'])await assert.rejects(db.query(rpc))
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'chat')",[TWO,ONE])
+  await db.query("update public.itext_blocks set scope='all' where blocker_id=$1 and blocked_id=$2",[TWO,ONE])
+  await assert.rejects(db.query('update public.itext_blocks set blocker_id=$1',[THREE]))
+  await assert.rejects(db.query('update public.itext_blocks set created_at=now()'))
+  await assert.rejects(db.query('insert into public.itext_conversation_settings(user_id,partner_id,accepted) values($1,$2,true)',[TWO,ONE]))
  }finally{await db.close()}
 })

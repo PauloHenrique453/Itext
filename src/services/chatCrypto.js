@@ -41,9 +41,9 @@ export async function encryptMessage(row, records, signingKey) {
   if (signingKey.getFingerprint() !== records[row.sender_id]?.fingerprint) throw new Error('A chave não pertence ao remetente.')
   const openpgp = await pgp()
   const keys = await Promise.all([...new Set([row.sender_id, row.recipient_id, row.owner_id])].map((id) => publicKey(records[id])))
-  const envelope = { version: 1, id: row.id, sender_id: row.sender_id, recipient_id: row.recipient_id, owner_id: row.owner_id, text: row.body.trim() }
+  const envelope = { version: 1, id: row.id, sender_id: row.sender_id, recipient_id: row.recipient_id, owner_id: row.owner_id, text: row.body.trim(), reply_to: row.reply_to || null, story_id: row.story_id || null }
   const body = await openpgp.encrypt({ message: await openpgp.createMessage({ text: JSON.stringify(envelope) }), encryptionKeys: keys, signingKeys: signingKey, format: 'armored' })
-  return { id: row.id, sender_id: row.sender_id, recipient_id: row.recipient_id, owner_id: row.owner_id, encryption_version: 1, body }
+  return { id: row.id, sender_id: row.sender_id, recipient_id: row.recipient_id, owner_id: row.owner_id, encryption_version: 1, body, reply_to: row.reply_to || null, story_id: row.story_id || null }
 }
 export async function decryptMessage(row, privateKey, sender) {
   if (row.encryption_version === 0) return { ...row, plaintext: row.body, legacy: true }
@@ -51,6 +51,6 @@ export async function decryptMessage(row, privateKey, sender) {
   const openpgp = await pgp()
   const { data } = await openpgp.decrypt({ message: await openpgp.readMessage({ armoredMessage: row.body }), decryptionKeys: privateKey, verificationKeys: await publicKey(sender), expectSigned: true, format: 'utf8' })
   const envelope = JSON.parse(data)
-  if (envelope.version !== 1 || ['id', 'sender_id', 'recipient_id', 'owner_id'].some((field) => envelope[field] !== row[field]) || typeof envelope.text !== 'string' || !envelope.text.trim() || envelope.text.length > 4000) throw new Error('A assinatura ou os dados da mensagem não conferem.')
+  if (envelope.version !== 1 || ['id', 'sender_id', 'recipient_id', 'owner_id'].some((field) => envelope[field] !== row[field]) || ['reply_to','story_id'].some((field) => (envelope[field] || null) !== (row[field] || null)) || typeof envelope.text !== 'string' || !envelope.text.trim() || envelope.text.length > 4000) throw new Error('A assinatura ou os dados da mensagem não conferem.')
   return { ...row, plaintext: envelope.text, legacy: false }
 }

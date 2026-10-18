@@ -115,3 +115,14 @@ A configuração e a recuperação da camada adicional ficam em **Configuraçõe
 
 
 A migração `20261018040725_optional_chat_protection.sql` habilita o modo padrão autenticado, limitado aos participantes e ao criador. A coluna de escolha é desativada por padrão; as chaves e o histórico existente são preservados. Esta migração deve preceder a publicação da nova interface. As mensagens padrão ficam em texto no servidor; não as anuncie como OpenPGP ou criptografia exclusiva entre participantes.
+
+
+### Stories, solicitações e bloqueios
+
+Aplique também `supabase/migrations/20261018044842_stories_requests_and_message_actions.sql` após as anteriores, antes de publicar esta versão. No projeto atual a aplicação é feita pelo conector e conferida separadamente; o atualizador do Windows só publica o frontend.
+
+O início e o perfil têm stories de fotos/vídeos por 24 horas. Comentários do story chegam como mensagem ao dono. Mensagens recebidas de pessoas sem conexão ficam em Desconhecidos até aceitar, seguir ou responder. Os bloqueios têm os tipos Apenas conversas e De tudo; o segundo conserva o perfil pesquisável e a galeria de fotos publicadas fora de grupos, como solicitado. Abra o menu de três pontos da conversa ou da mensagem para administrar o conteúdo. No post próprio, use os ícones Editar e Apagar; o perfil também oferece esses controles.
+
+Para conferir após publicar, use duas contas reais: teste cada direção de seguidor, aceitar/apagar solicitação, ambos os bloqueios, fotos visíveis no perfil com posts/stories ocultos, comentário de story recebido como mensagem, edição/reação/resposta a uma mensagem específica e exclusões para si ou para todos. Repita uma resposta protegida com as chaves já existentes, sem redefini-las. Confirme que uma terceira conta não acessa mensagens alheias. A revisão declarada do criador permanece com suas permissões anteriores.
+
+Stories expiram no banco, mas os arquivos não são purgados automaticamente. Exclusão para todos substitui o corpo no banco; não revoga cópias já feitas ou arquivos já baixados. URLs assinadas de stories podem durar até 5 minutos; outras mídias, até 1 hora. Consulte o README para limites do bloqueio por conta e manutenção da franquia gratuita.

@@ -7,7 +7,7 @@ export default function useUnreadCount(userId){
  useEffect(()=>{
   if(!userId||!api)return
   let active=true
-  const refresh=()=>{void api.inbox().then((rows)=>{if(active)setCount(rows.reduce((sum,row)=>sum+Number(row.unread),0))}).catch(()=>{})}
+  const refresh=()=>{void Promise.all([api.inbox(),api.blocks()]).then(([rows,blocks])=>{if(active)setCount(rows.filter(row=>!blocks.some(block=>block.blocked_id===row.partner_id)).reduce((sum,row)=>sum+Number(row.unread),0))}).catch(()=>{})}
   refresh()
   const stop=api.listen(userId,refresh,(status)=>{if(status==='SUBSCRIBED')refresh()},false,refresh)
   const timer=setInterval(refresh,60000)

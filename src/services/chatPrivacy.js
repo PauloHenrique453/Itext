@@ -54,9 +54,9 @@ export function privacyClient(client) {
       // The decrypted private key stays in memory. Optional recovery-code storage is encrypted in IndexedDB.
       const session = {
         id: state.id, ownerId: state.ownerId, isOwner: state.isOwner,
-        async encrypt(partner, text, messageId) {
+        async encrypt(partner, text, messageId, context = {}) {
           const records = await directory([state.id, partner, state.ownerId])
-          return encryptMessage({ id: messageId, sender_id: state.id, recipient_id: partner, owner_id: state.ownerId, body: text }, records, privateKey)
+          return encryptMessage({ id: messageId, sender_id: state.id, recipient_id: partner, owner_id: state.ownerId, body: text, reply_to: context.reply_to || null, story_id: context.story_id || null }, records, privateKey)
         },
         async decrypt(rows) {
           if (!rows.length) return []

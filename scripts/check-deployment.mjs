@@ -25,7 +25,7 @@ export async function checkDeployment(config, fetcher = fetch) {
     if (!response.ok) throw new Error(`A estrutura ${table} não está acessível. Confira a aplicação de supabase/social.sql e das migrações posteriores.`)
   }
   checks.push('Estrutura pública do aplicativo disponível')
-  for (const table of ['direct_messages', 'chat_profiles', 'itext_dating', 'itext_swipes', 'itext_group_invites', 'itext_chat_keys', 'itext_chat_privacy', 'itext_chat_public_keys', 'itext_conversation_reads', 'itext_chat_inbox', 'itext_chat_preferences']) {
+  for (const table of ['direct_messages', 'chat_profiles', 'itext_dating', 'itext_swipes', 'itext_group_invites', 'itext_chat_keys', 'itext_chat_privacy', 'itext_chat_public_keys', 'itext_conversation_reads', 'itext_chat_inbox', 'itext_chat_preferences', 'itext_blocks', 'itext_stories', 'itext_story_likes', 'itext_story_counts', 'itext_message_reactions', 'itext_message_hides', 'itext_conversation_settings']) {
     const response = await request(`/rest/v1/${table}?select=*&limit=0`)
     if (![401, 403].includes(response.status)) {
       throw new Error(`Acesso anônimo a ${table} não foi bloqueado como esperado. Revise as permissões antes de publicar.`)
