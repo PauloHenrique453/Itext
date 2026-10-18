@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/34550c03f06311bec1e37d8a09e7d3c461c17720.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3edfc0e78820f11e0967f0242afb409cab4edd01.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/34550c03f06311bec1e37d8a09e7d3c461c17720.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3edfc0e78820f11e0967f0242afb409cab4edd01.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -292,3 +292,16 @@ Esta revisão mantém os recursos anteriores. O bloco **Atualizar o Itext já pu
 Depois de **Deploy complete!**, aceite Atualizar agora ou recarregue com Ctrl+F5. Confira em celular vertical/horizontal, tablet e computador: teclado aberto/fechado no chat, responder uma mensagem antiga, voltar à lista, rolar dois vídeos do feed e abrir/fechar o Ishort. Publique um corte e duas partes reais, confira início/fim e teste uma interrupção retomando na mesma janela.
 
 A validação inclui 69 testes automatizados, build, renderização SSR e cortes com o encoder WebAssembly real, incluindo o limite de dez minutos. Não foi possível executar navegador nesta sessão: aparência, teclado, arraste, permissões de autoplay e uploads ainda precisam dessa conferência nos aparelhos. A publicação no Firebase é feita no seu PowerShell autenticado, pelo bloco completo acima.
+
+
+## Correção mais recente: vídeo grande enviado pelo Início
+
+O problema era uma entrada sem ligação com o editor: no Início o arquivo chegava direto à regra de upload de 50 MB. Agora o botão **Vídeo** abre o editor automaticamente quando o arquivo ultrapassa 50 MB, e o novo botão **Cortar vídeo** permite escolher um trecho mesmo em arquivos menores. O arquivo já selecionado é aberto no editor, sem pedir que você o procure outra vez.
+
+Use o bloco **Atualizar o Itext já publicado** desta página atualizada; executar somente `npm.cmd run deploy:firebase` na pasta antiga não baixa a correção. O bloco mantém o projeto Firebase itext-1b9da e as configurações atuais. Não há novas dependências nem SQL nesta correção; a instalação do editor da revisão anterior continua sendo feita automaticamente pelo bloco.
+
+Depois de **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5. No **Início → Vídeo**, escolha um vídeo compatível entre 50 e 200 MB. Deverá abrir **Cortar vídeo para a publicação**, com prévia e as alças de início/fim. Ajuste, use **Adicionar trecho(s) à publicação** e revise os anexos antes de pressionar **Publicar**. O texto e o destino escolhidos anteriormente são mantidos. **Dividir em partes** permite preparar até o número de anexos ainda disponíveis nessa publicação, com limite total de seis; no Ishort, as partes continuam sendo publicações separadas.
+
+O original editável continua limitado a **200 MB**, e cada trecho gerado a **dez minutos e 50 MB**. Sem cortar, vídeos do feed até 50 MB continuam sem limite artificial de duração. Ao selecionar diversos arquivos junto de um vídeo grande, edite esse vídeo primeiro e depois selecione os demais anexos, conforme o aviso exibido. Fechar após preparar parte dos trechos retorna os envios concluídos ao rascunho.
+
+Passaram 73 testes automatizados, build e SSR. Não houve acesso de navegador para validar aparência/cliques e nem confirmação da versão publicada ao vivo nesta sessão; confira o fluxo no seu aparelho após executar o bloco.
