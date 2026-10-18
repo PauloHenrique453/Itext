@@ -47,3 +47,10 @@ test('opening a shared story survives OAuth without accepting arbitrary redirect
  assert.equal(options.redirectTo,'https://itext-1b9da.web.app/?story='+id)
  assert.equal(readLoginCallback(options.redirectTo+'&code=one-time').cleaned,'/?story='+id)
 })
+
+test('Ishort video destinations survive Google sign-in without forwarding auth codes or other sites',()=>{
+ const id='00000000-0000-0000-0000-000000000001'
+ const options=loginOptions('google','https://itext-1b9da.web.app','?ishort='+id+'&redirect_to=https://other.test&code=private')
+ assert.equal(options.redirectTo,'https://itext-1b9da.web.app/?ishort='+id)
+ assert.equal(readLoginCallback(options.redirectTo+'&code=one-time').cleaned,'/?ishort='+id)
+})

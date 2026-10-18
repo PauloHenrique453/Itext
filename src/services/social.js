@@ -1,4 +1,5 @@
 import { supabase, initializeAuth } from './auth.js'
+import { SHORT_MAX_SECONDS,shortTarget } from './shorts.js'
 import { attachmentInfo } from './content.js'
 
 import { appearance } from './mediaFormats.js'
@@ -284,6 +285,36 @@ export const socialApi={
   status:async()=>({mode:'supabase',persistence:'Postgres',refreshSeconds:30}),
   feed:(_uid,mode)=>loadFeed(mode),
   async ownPosts() { const user=await identity(false); return user?loadFeed('chronological',{authorId:user.id}):{posts:[]} },
+  async shortFeed({after=null,following=false,postId=null}={}){
+    const user=await identity()
+    let query=supabase.from('itext_posts').select('id,author_id,text,media,created_at,edited_at').is('group_id',null).contains('media',[{type:'video',short:true}]).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(20)
+    if(after)query=query.or(`created_at.lt.${after.createdAt},and(created_at.eq.${after.createdAt},id.lt.${after.id})`)
+    if(postId)query=query.eq('id',postId)
+    if(following){const follows=await result(supabase.from('itext_follows').select('following_id').eq('follower_id',user.id));if(!follows.length)return {posts:[],hasMore:false,cursor:null};query=query.in('author_id',follows.map(row=>row.following_id))}
+    const rows=await result(query)
+    if(!rows.length)return {posts:[],hasMore:false,cursor:null}
+    const ids=rows.map(row=>row.id)
+    const [authors,counts,likes]=await Promise.all([
+      result(supabase.from('itext_public_profiles').select('id,name,avatar_url').in('id',[...new Set(rows.map(row=>row.author_id))])),
+      result(supabase.from('itext_post_counts').select('*').in('id',ids)),
+      result(supabase.from('itext_likes').select('post_id').eq('user_id',user.id).in('post_id',ids)),
+    ])
+    return {posts:await Promise.all(rows.map(async row=>{const author=authors.find(person=>person.id===row.author_id),count=counts.find(item=>item.id===row.id);return {id:row.id,authorId:row.author_id,author:author?.name||'Membro do Itext',avatar:await displayUrl(author?.avatar_url),text:row.text,createdAt:row.created_at,editedAt:row.edited_at,media:await Promise.all(row.media.filter(item=>item.type==='video'&&item.short===true).map(displayMedia)),likes:Number(count?.likes||0),comments:Number(count?.comments||0),liked:likes.some(item=>item.post_id===row.id)}})),hasMore:rows.length===20,cursor:{id:rows.at(-1).id,createdAt:rows.at(-1).created_at}}
+  },
+  async createShort({id,text='',media}){
+    const user=await identity()
+    if(shortTarget(new URLSearchParams({ishort:id}).toString())!==id||media?.type!=='video'||!Number.isFinite(media.size)||media.size<=0||!Number.isFinite(media.duration)||media.duration<=0||media.duration>SHORT_MAX_SECONDS||media.size>50000000||!media.storagePath?.startsWith(user.id+'/'))throw new Error('Confira o vídeo: até 10 minutos e 50 MB, enviado por sua conta.')
+    const savedMedia={...media,short:true,url:storagePrefix+media.storagePath}
+    const payload={id,author_id:user.id,text:text.trim().slice(0,10000),media:[savedMedia],...classify(text,null)}
+    const saved=await supabase.from('itext_posts').insert(payload).select('id').single()
+    if(saved.error?.code==='23505'){
+      const existing=await result(supabase.from('itext_posts').select('id,author_id,text,media,group_id,page_id,code').eq('id',id).single())
+      if(existing.author_id===user.id&&existing.group_id===null&&existing.page_id===null&&existing.code===null&&existing.text===payload.text&&existing.media.length===1&&Object.entries(savedMedia).every(([key,value])=>existing.media[0][key]===value))return {id:existing.id}
+    }
+    if(saved.error)throw saved.error
+    return saved.data
+  },
+  async postCounts(id){return result(supabase.from('itext_post_counts').select('likes,comments').eq('id',id).single())},
   async createPost(payload) {
     const user=await identity()
     const text=payload.text?.trim()||''

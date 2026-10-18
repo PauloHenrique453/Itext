@@ -673,3 +673,25 @@ test('text and audio stories validate content, ownership, fonts, colors and serv
   await db.exec('reset role');assert.equal(Number((await db.query("select file_size_limit from storage.buckets where id='itext-media'")).rows[0].file_size_limit),50000000)
  }finally{await db.close()}
 })
+
+test('Ishort video discovery uses real post interactions and retains author ownership, group privacy and full blocks',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const path=ONE+'/short.mp4',media=JSON.stringify([{type:'video',short:true,duration:600,width:1080,height:1920,storagePath:path,url:'itext-media:'+path,size:1000}])
+  await db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1)",[path])
+  const post=(await db.query("insert into public.itext_posts(author_id,text,media) values($1,'Vídeo curto real',$2) returning id",[ONE,media])).rows[0].id
+  const group=(await db.query("select public.itext_create_group('Privado','','private','request') as id")).rows[0].id
+  await db.query('insert into public.itext_posts(author_id,text,group_id,media) values($1,\'Vídeo do grupo\',$2,$3)',[ONE,group,media])
+  await as(db,TWO)
+  const query="select id from public.itext_posts where group_id is null and media @> '[{\"type\":\"video\",\"short\":true}]'::jsonb"
+  assert.deepEqual((await db.query(query)).rows.map(row=>row.id),[post])
+  await assert.rejects(db.query("insert into public.itext_posts(author_id,media) values($1,$2)",[TWO,media]))
+  await db.query('select * from public.itext_set_post_like($1,true)',[post])
+  await db.query("insert into public.itext_comments(post_id,author_id,text) values($1,$2,'Comentário no vídeo')",[post,TWO])
+  assert.deepEqual((await db.query('select likes,comments from public.itext_post_counts where id=$1',[post])).rows,[{likes:1,comments:1}])
+  await as(db,ONE);await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
+  await as(db,TWO);assert.equal((await db.query(query)).rows.length,0)
+  await assert.rejects(db.query('select * from public.itext_set_post_like($1,true)',[post]))
+ }finally{await db.close()}
+})

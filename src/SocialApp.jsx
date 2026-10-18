@@ -43,7 +43,7 @@ function LoadingScreen() {
 }
 
 export default function SocialApp() {
-  const [activeView, setActiveView] = useState(() => new URLSearchParams(window.location.search).has('perfil')?'member-profile':new URLSearchParams(window.location.search).has('post')?'post':new URLSearchParams(window.location.search).has('grupo') ? 'communities' : 'home')
+  const [activeView, setActiveView] = useState(() => new URLSearchParams(window.location.search).has('ishort')?'shorts':new URLSearchParams(window.location.search).has('perfil')?'member-profile':new URLSearchParams(window.location.search).has('post')?'post':new URLSearchParams(window.location.search).has('grupo') ? 'communities' : 'home')
   const [profileTarget,setProfileTarget]=useState(()=>new URLSearchParams(window.location.search).get('perfil'))
   const [postTarget,setPostTarget]=useState(()=>({id:new URLSearchParams(window.location.search).get('post'),commentId:null}))
   const [photoTarget,setPhotoTarget]=useState(()=>{const p=new URLSearchParams(window.location.search);return p.has('foto')?{postId:p.get('foto'),index:Math.max(0,Number(p.get('indice'))||0)}:null})
@@ -93,11 +93,11 @@ export default function SocialApp() {
 
   function closePhoto(){setPhotoTarget(null);const url=new URL(window.location.href);url.searchParams.delete('foto');url.searchParams.delete('indice');window.history.replaceState(null,'',url)}
   function openPhoto(target){setPhotoTarget(target)}
-  function openProfile(id){closePhoto();setShowCreate(false);setShowMenu(false);setProfileTarget(id);setActiveView(id===backend.user?.id?'profile':'member-profile');const url=new URL(window.location.href);url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('perfil',id);window.history.replaceState(null,'',url);window.scrollTo({top:0})}
-  function openPost(id,commentId=null){setPostTarget({id,commentId});setActiveView('post');const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('post',id);window.history.replaceState(null,'',url);window.scrollTo({top:0})}
+  function openProfile(id){closePhoto();setShowCreate(false);setShowMenu(false);setProfileTarget(id);setActiveView(id===backend.user?.id?'profile':'member-profile');const url=new URL(window.location.href);url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('perfil',id);url.searchParams.delete('ishort');window.history.replaceState(null,'',url);window.scrollTo({top:0})}
+  function openPost(id,commentId=null){setPostTarget({id,commentId});setActiveView('post');const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('grupo');url.searchParams.delete('convite');url.searchParams.set('post',id);url.searchParams.delete('ishort');window.history.replaceState(null,'',url);window.scrollTo({top:0})}
   function navigate(view) {
     closePhoto()
-    const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
+    const url=new URL(window.location.href);url.searchParams.delete('ishort');url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
     if (view === 'messages') setConversationTarget(null)
     if (view === 'people') setPeopleFilter('all')
     setShowMenu(false)
@@ -111,7 +111,7 @@ export default function SocialApp() {
 
   function startConversation(person) {
     closePhoto()
-    const url=new URL(window.location.href);url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
+    const url=new URL(window.location.href);url.searchParams.delete('ishort');url.searchParams.delete('perfil');url.searchParams.delete('post');url.searchParams.delete('grupo');url.searchParams.delete('convite');window.history.replaceState(null,'',url)
     setConversationTarget(person); setActiveView('messages'); setShowMenu(false)
   }
 
@@ -143,7 +143,7 @@ export default function SocialApp() {
     case 'explore': view = <ExploreView key={searchQuery} initialQuery={searchQuery} onNavigate={navigate} onFindPeople={() => navigate('people')} posts={backend.posts} profiles={backend.profiles} communities={backend.communities} pages={backend.pages} user={backend.user} />; break
     case 'people': view = <PeopleView key={peopleFilter} initialFilter={peopleFilter} user={backend.user} onFollow={backend.toggleProfileFollow} onMessage={startConversation} onNotify={notify} />; break
     case 'messages': view = <MessagesView onSocialChange={backend.refresh} user={backend.user} onNotify={notify} initialPerson={conversationTarget} onConfigureSecurity={() => navigate('settings')} onFindPeople={() => navigate('people')} />; break
-    case 'shorts': view = <ShortsView posts={backend.posts} />; break
+    case 'shorts': view = <ShortsView user={backend.user} onNotify={notify} onChanged={backend.refresh} />; break
     case 'dating': view = <DatingView user={backend.user} data={backend.dating} onLoad={backend.getDating} onSave={backend.saveDatingProfile} onSwipe={backend.swipeDatingProfile} onUploadMedia={backend.uploadMedia} onNotify={notify} />; break
     case 'communities': view = <CommunitiesView communities={backend.communities} categories={[...backend.communities,...backend.pages].map(space=>space.category).filter(Boolean)} onSaveSpace={backend.saveSpace} onUploadMedia={backend.uploadMedia} onCreateCommunity={backend.createCommunity} onOpenGroup={backend.openGroup} onJoinGroup={backend.joinGroup} onApproveMember={backend.approveGroupMember} onNotify={notify} />; break
     case 'pages': view = <PagesView pages={backend.pages} categories={[...backend.communities,...backend.pages].map(space=>space.category).filter(Boolean)} onSaveSpace={backend.saveSpace} onUploadMedia={backend.uploadMedia} onCreatePage={backend.createPage} onToggleFollow={backend.togglePageFollow} onNotify={notify} />; break
