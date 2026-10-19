@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-**Atualização atual:** editor de stories com prévia, ajustes de texto, filtros, enquadramento e recorte real de vídeos grandes; preparação da página pública para Google e Bing. Para instalar, execute o bloco completo de **Atualizar o Itext já publicado** abaixo. Rodar somente o deploy de uma pasta antiga não baixa os novos recursos.
+**Atualização atual:** arquivo original de verificação do Google incluído, mantendo o editor de stories, o recorte de vídeos e a preparação para buscadores. Execute o bloco completo de **Atualizar o Itext já publicado** abaixo para publicar também esse arquivo.
 
 O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de comentários/respostas, notificações, presença, espaços, curtidas rápidas, visualizador de fotos, temas e novos formatos de stories. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
@@ -33,7 +33,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/4fe72f2ca7d89a5aa8747bb589a65eb2f98aaa70.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7bc2fc6bcb193cd1d739d54f7158183e24c9b94d.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -105,7 +105,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/4fe72f2ca7d89a5aa8747bb589a65eb2f98aaa70.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7bc2fc6bcb193cd1d739d54f7158183e24c9b94d.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -361,3 +361,15 @@ Depois de **Deploy complete!**, aceite Atualizar agora ou recarregue e confira n
 5. Abra `/robots.txt` e `/sitemap.xml` no endereço publicado e siga [APARECER-NO-GOOGLE.md](APARECER-NO-GOOGLE.md). O endereço gratuito pode ser indexado, mas a confirmação no Search Console e o pedido de indexação precisam ser feitos na sua conta Google. Não há garantia de inclusão, posição ou prazo nos resultados.
 
 Passaram **89 testes automatizados**, build, verificação de referências JavaScript e SSR, incluindo seleção de trecho real, envio somente do arquivo gerado, retomada, validação das opções no Postgres e manutenção do acesso privado às prévias de mensagens. A página inicial de apresentação é gerada como HTML sem consultar dados de usuários; sitemap e metadados não expõem histórias ou mensagens. Não há ferramenta de navegador disponível nesta sessão: aparência, toque/arraste, upload e reprodução no aparelho precisam da conferência acima. A publicação no Firebase continua sendo feita no PowerShell autenticado.
+
+
+## Concluir a verificação do Google por arquivo HTML
+
+O arquivo enviado pelo proprietário, `google26f7c0968812bad2.html`, foi incluído em `public/`, sem modificar seus 53 bytes. O build foi concluído e a versão gerada foi servida localmente: o endereço do arquivo retornou HTTP 200 e o conteúdo exato, em vez da página de entrada do aplicativo. Isso valida o pacote; a hospedagem ao vivo ainda precisa receber o deploy pelo seu PowerShell autenticado.
+
+1. Execute o bloco completo **Atualizar o Itext já publicado** desta página e espere **Deploy complete!**.
+2. Abra https://itext-1b9da.web.app/google26f7c0968812bad2.html e confira se aparece somente `google-site-verification: google26f7c0968812bad2.html`. Se aparecer o aplicativo, confira a atualização dos arquivos e a conclusão do deploy antes de tentar verificar novamente.
+3. No Search Console, selecione a propriedade **https://itext-1b9da.web.app/**, abra **Arquivo HTML** e clique em **Verificar**. Não precisa trocar para Tag HTML nem configurar variável de verificação para esse método.
+4. Após a confirmação, envie **https://itext-1b9da.web.app/sitemap.xml** em Sitemaps. Em Inspeção de URL, teste **https://itext-1b9da.web.app/** e use **Solicitar indexação** quando disponível.
+
+Mantenha o arquivo nos próximos deploys. Confirmar a propriedade permite solicitar indexação; a presença e a posição nos resultados continuam dependendo do Google. O passo a passo completo está em [APARECER-NO-GOOGLE.md](APARECER-NO-GOOGLE.md).
