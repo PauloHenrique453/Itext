@@ -12,11 +12,22 @@ Use o bloco completo **Atualizar o Itext já publicado** de [PUBLICAR-NO-WINDOWS
 
 O build gera HTML público com o nome e a descrição do Itext antes do JavaScript, endereço canônico, dados estruturados WebSite e metadados de compartilhamento. Somente a apresentação pública entra no sitemap. Perfis, mensagens, stories e links com parâmetros de login não são listados. Isso não muda as permissões do banco nem publica conteúdo privado.
 
+## Verificação por arquivo HTML já preparada para este Itext
+
+O arquivo original enviado pelo proprietário foi incluído como `public/google26f7c0968812bad2.html`, com o nome e os 53 bytes preservados. O build copia esse arquivo para a raiz publicada. Mantenha-o no projeto e nos próximos deploys para conservar a verificação.
+
+1. Execute o bloco completo **Atualizar o Itext já publicado** do guia do Windows. Aguarde **Deploy complete!**.
+2. Abra https://itext-1b9da.web.app/google26f7c0968812bad2.html. Deve aparecer somente `google-site-verification: google26f7c0968812bad2.html`. Se aparecer a página de entrada do Itext, o arquivo ainda não chegou à hospedagem; confira se atualizou o código antes do deploy.
+3. Volte ao Search Console, selecione a propriedade **https://itext-1b9da.web.app/** e conclua o método **Arquivo HTML** com **Verificar**. Para esse método, não precisa configurar a variável de tag HTML descrita abaixo.
+4. Após confirmar a propriedade, envie o sitemap e solicite a indexação, conforme os passos 5 e 6 da seção seguinte.
+
+O arquivo foi validado no pacote de publicação. A confirmação na hospedagem e na conta Google depende do deploy e do clique em Verificar; não foi feita automaticamente pelo chat.
+
 ## Google Search Console: gratuito
 
 1. Abra https://search.google.com/search-console com sua conta Google.
 2. Em **Adicionar propriedade**, escolha **Prefixo do URL** e informe **https://itext-1b9da.web.app/**. Essa opção funciona com o endereço gratuito; a opção Domínio exige acesso ao DNS de um domínio próprio.
-3. Se a propriedade já for verificada automaticamente, prossiga. Caso contrário, escolha **Tag HTML** em Outros métodos de verificação. A tag `google-site-verification` é um código público de comprovação, não uma senha. Ela pode ser enviada aqui para inclusão na próxima versão.
+3. Se a propriedade já for verificada automaticamente, prossiga. No Itext atual, use o **Arquivo HTML** preparado acima. Como alternativa para outras configurações, escolha **Tag HTML** em Outros métodos de verificação. A tag `google-site-verification` é um código público de comprovação, não uma senha. Ela pode ser enviada aqui para inclusão na próxima versão.
 4. Para configurá-la por conta própria, copie somente o valor de `content` e acrescente `VITE_GOOGLE_SITE_VERIFICATION=SEU_CODIGO_PUBLICO` ao arquivo `.env.independent.local` da pasta correta. Substitua o exemplo pelo valor real, sem colar a tag HTML inteira. Preserve as linhas do Supabase. Publique novamente e então clique em **Verificar** no Search Console. O código deve continuar presente nos próximos deploys; não remova a linha.
 5. Em **Sitemaps**, envie **https://itext-1b9da.web.app/sitemap.xml**.
 6. Em **Inspeção de URL**, informe **https://itext-1b9da.web.app/**, escolha **Testar URL publicada** e, quando disponível, **Solicitar indexação**.
