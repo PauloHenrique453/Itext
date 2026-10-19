@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-**Atualização atual:** correção do erro `invalid input syntax for type json` no Ishort e ajuste do campo de mensagens no celular, incluindo o teclado aberto. Para instalar, execute o bloco completo de **Atualizar o Itext já publicado** abaixo. Não basta executar o deploy de uma pasta que ainda contém o código antigo.
+**Atualização atual:** editor de stories com prévia, ajustes de texto, filtros, enquadramento e recorte real de vídeos grandes; preparação da página pública para Google e Bing. Para instalar, execute o bloco completo de **Atualizar o Itext já publicado** abaixo. Rodar somente o deploy de uma pasta antiga não baixa os novos recursos.
 
 O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de comentários/respostas, notificações, presença, espaços, curtidas rápidas, visualizador de fotos, temas e novos formatos de stories. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
@@ -33,7 +33,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/30d1d598f1240eed4c8894837ff71d2c554805fa.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/4fe72f2ca7d89a5aa8747bb589a65eb2f98aaa70.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -105,12 +105,12 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/30d1d598f1240eed4c8894837ff71d2c554805fa.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/4fe72f2ca7d89a5aa8747bb589a65eb2f98aaa70.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
     $itextPastas = @('src', 'scripts', 'tests', 'supabase', 'public')
-    $itextArquivos = @('firebase.json', 'index.html', 'package.json', 'package-lock.json', '.gitignore', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md')
+    $itextArquivos = @('firebase.json', 'index.html', 'package.json', 'package-lock.json', '.gitignore', 'README.md', 'PUBLICAR-FORA-DO-CHATGPT.md', 'APARECER-NO-GOOGLE.md')
     foreach ($itextItem in ($itextPastas + $itextArquivos)) {
         if (-not (Test-Path -LiteralPath (Join-Path $itextFonte[0].FullName $itextItem))) { throw ('Arquivo ausente na atualizacao: ' + $itextItem) }
     }
@@ -340,3 +340,24 @@ Depois de executar o bloco completo e receber **Deploy complete!**, aceite **Atu
 4. Feche o teclado, gire o celular, abra a lupa para buscar e volte à lista de conversas. Confira também no computador.
 
 Passaram **83 testes automatizados**, build, verificação de referências JavaScript e renderização SSR. Um teste usa o SDK real e PostgreSQL local para reproduzir o erro JSON e comprovar o filtro corrigido, incluindo a exclusão de grupos e vídeos comuns. Os testes de viewport simulam redimensionamento/deslocamento do teclado, rotação, preservação do histórico e saída da conversa. Não substituem a conferência visual no Edge: o runtime do navegador não está disponível nesta sessão, e nenhum teste visual ou de teclado físico foi realizado. A publicação no Firebase ainda precisa ser feita no PowerShell autenticado; não houve migração, alteração de permissões ou ativação de serviço pago nesta correção.
+
+
+## Atualização atual: editor de stories, recorte e busca no Google
+
+A migração `20261019003517_story_editor_presentation.sql` já foi aplicada ao Supabase deste projeto. Não precisa executar SQL ou alterar permissões. Execute o bloco completo **Atualizar o Itext já publicado** desta página para receber e publicar a interface. O bloco preserva a configuração pública e o login do Firebase; não ativa cobrança.
+
+O editor agora oferece prévia com aba própria no celular, troca/remoção e arrastar arquivos, contador de texto/legenda, fonte, tamanho, alinhamento, posição e cor do texto, cores de fundo, enquadramento e filtros de foto/vídeo, além de começar o vídeo sem som. Restaurar visual volta aos ajustes iniciais sem apagar o texto ou a mídia. Os ajustes aparecem também ao visualizar o story e ao abrir a prévia de uma resposta nas mensagens. Stories continuam visíveis por 24 horas; visualizações, curtidas e respostas continuam funcionando. Não foram adicionados botões sem função.
+
+Em **Seu story → Vídeo**, escolha o original de até **200 MB**. As alças de início e fim aparecem antes do envio, inclusive para um arquivo maior que 50 MB. A seleção inicial é de até um minuto; pode ser ajustada até **dez minutos por story**, com arquivo final até **50 MB**. Use Ver seleção para assistir à parte escolhida. Publicar prepara um arquivo real somente daquele trecho, reaproveitando o encoder do Ishort no aparelho. Se a seleção corresponde ao vídeo inteiro e já atende aos limites, a conversão é dispensada. O texto, a legenda e o visual ficam preservados durante a edição. Fotos aceitam até 8 MB e áudios até 18 MB.
+
+Há progresso do corte e Interromper preparação. Em caso de falha, mantenha esta janela aberta e use Continuar envio: o trecho e o upload já concluídos são reutilizados. O mesmo identificador evita publicar duas vezes quando a resposta do servidor se perde. Após começar a confirmação da publicação, os ajustes ficam travados para que a retomada confirme o mesmo conteúdo. Fechar/recarregar não conserva essa retomada nem os arquivos originais.
+
+Depois de **Deploy complete!**, aceite Atualizar agora ou recarregue e confira no Edge do celular e no computador:
+
+1. Crie um story de texto. Ajuste tamanho, alinhamento, posição e cor, confira Prévia e publique. Abra o story para confirmar o visual salvo.
+2. Selecione uma foto, alterne Mostrar inteira/Preencher, aplique um filtro e escreva uma legenda. Confira com outra conta real.
+3. Escolha um vídeo compatível entre 50 e 200 MB. Arraste as alças para um trecho no meio do arquivo e use Ver seleção. Publique e confirme que o arquivo começa e termina na parte escolhida. Não é necessário publicar o original.
+4. Responda ao story com outra conta e abra a prévia nas mensagens: os ajustes do story devem ser preservados. Confira também a audiência na conta do dono.
+5. Abra `/robots.txt` e `/sitemap.xml` no endereço publicado e siga [APARECER-NO-GOOGLE.md](APARECER-NO-GOOGLE.md). O endereço gratuito pode ser indexado, mas a confirmação no Search Console e o pedido de indexação precisam ser feitos na sua conta Google. Não há garantia de inclusão, posição ou prazo nos resultados.
+
+Passaram **89 testes automatizados**, build, verificação de referências JavaScript e SSR, incluindo seleção de trecho real, envio somente do arquivo gerado, retomada, validação das opções no Postgres e manutenção do acesso privado às prévias de mensagens. A página inicial de apresentação é gerada como HTML sem consultar dados de usuários; sitemap e metadados não expõem histórias ou mensagens. Não há ferramenta de navegador disponível nesta sessão: aparência, toque/arraste, upload e reprodução no aparelho precisam da conferência acima. A publicação no Firebase continua sendo feita no PowerShell autenticado.
