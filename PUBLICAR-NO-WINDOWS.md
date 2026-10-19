@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-**Atualização atual:** arquivo original de verificação do Google incluído, mantendo o editor de stories, o recorte de vídeos e a preparação para buscadores. Execute o bloco completo de **Atualizar o Itext já publicado** abaixo para publicar também esse arquivo.
+**Atualização atual:** Início com símbolo centralizado e animação ao puxar para atualizar; Ishort reorganizado para celular e tablet, com botão de som na coluna de ações e adaptação para telas baixas. Execute o bloco completo de **Atualizar o Itext já publicado** para baixar e publicar esta versão.
 
 O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de comentários/respostas, notificações, presença, espaços, curtidas rápidas, visualizador de fotos, temas e novos formatos de stories. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
@@ -33,7 +33,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7bc2fc6bcb193cd1d739d54f7158183e24c9b94d.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/e086d528bc0c2c4e5a6db26a8409597284f4a237.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -105,7 +105,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/7bc2fc6bcb193cd1d739d54f7158183e24c9b94d.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/e086d528bc0c2c4e5a6db26a8409597284f4a237.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -373,3 +373,24 @@ O arquivo enviado pelo proprietário, `google26f7c0968812bad2.html`, foi incluí
 4. Após a confirmação, envie **https://itext-1b9da.web.app/sitemap.xml** em Sitemaps. Em Inspeção de URL, teste **https://itext-1b9da.web.app/** e use **Solicitar indexação** quando disponível.
 
 Mantenha o arquivo nos próximos deploys. Confirmar a propriedade permite solicitar indexação; a presença e a posição nos resultados continuam dependendo do Google. O passo a passo completo está em [APARECER-NO-GOOGLE.md](APARECER-NO-GOOGLE.md).
+
+
+## Início com atualização por gesto e novo Ishort para celular/tablet
+
+O texto **Seu mundo, em movimento.** foi removido do cabeçalho do feed. O símbolo do Itext ocupa o centro do topo, acima das abas Para você, Recentes e Seguindo. No computador, o próprio símbolo funciona como botão Atualizar Início.
+
+No celular ou tablet, vá ao começo do feed, toque em uma área livre e puxe para baixo. O anel luminoso acompanha o gesto; quando atingir o ponto de atualização, solte. O brilho continua durante a busca real de publicações, e os stories são recarregados também. Arrastos curtos ou para o lado não atualizam, e toques em campos/botões, reprodução de mídia e modais preservam seus gestos. Uma nova solicitação é bloqueada enquanto a anterior está em andamento. Se a conexão falhar, o indicador termina e aparece o erro. Quem usa a preferência Reduzir movimento recebe um indicador estático.
+
+O Ishort agora usa uma área limitada pelo topo e pela navegação do aplicativo nas telas menores, com header compacto de Para você/Seguindo, Atualizar e Publicar vídeo. O vídeo mantém seu enquadramento inteiro. A coluna lateral reúne perfil, curtidas, comentários, compartilhar e som; as visualizações ficam separadas dos botões. Som, transporte e principais ações têm áreas de toque de pelo menos 44 px. As ações mudam de distribuição quando há pouca altura, incluindo uma faixa horizontal em telas muito baixas. O conteúdo longo fica contido para não ocupar a área dos controles. Girar o aparelho preserva o vídeo atual.
+
+A ativação do som é executada diretamente no toque. Ativar som em um vídeo pausado não obriga a reprodução; o botão Reproduzir continua disponível. X/Escape fecha o visualizador de vídeo aberto pelo feed; as abas e a navegação do aplicativo continuam acessíveis no modo normal. O recorte de vídeos, stories, comentários, curtidas e publicação usam as funções existentes.
+
+Depois de executar o bloco completo e receber **Deploy complete!**, aceite Atualizar agora ou recarregue e confira:
+
+1. No Início, veja o símbolo centralizado e a ausência da frase no cabeçalho. Puxe a área livre do feed a partir do topo e solte após o indicador ficar pronto. Confira uma atualização real; um arrasto curto não deve disparar outra busca.
+2. No computador, clique no símbolo para atualizar. Confira que o rascunho da publicação é mantido e que a leitura de um link de post não volta a saltar para o mesmo post a cada atualização.
+3. Abra o Ishort no Edge do celular e no tablet. Role entre vídeos, ative/desative o som, pause e avance pela barra. Os controles devem aparecer acima da navegação inferior.
+4. Gire o aparelho, teste tela baixa e uma legenda comprida. Som, curtir, comentar e compartilhar devem continuar acessíveis. Teste as abas Para você/Seguindo, Publicar vídeo, abrir comentários, seguir um perfil e voltar ao feed.
+5. Confira também o arquivo de verificação do Google e o sitemap, que seguem incluídos. A interface nova não exige nova verificação da propriedade no Search Console.
+
+Passaram **94 testes automatizados**, build, verificação de referências JavaScript e SSR. Os testes incluem gesto vertical/horizontal, limiar, falha, prevenção de solicitações duplicadas, medidas de viewport, rotação mantendo o vídeo, limpeza dos eventos e retomada de som sem reiniciar vídeos ocultos. Também foram conferidos os controles renderizados, os arquivos do editor de stories e a preservação do arquivo original de verificação do Google. A ferramenta de navegador não está disponível nesta sessão: alinhamento visual, toque e reprodução no Edge/Safari precisam da conferência nos aparelhos. A publicação no Firebase depende do PowerShell autenticado. Esta revisão não exige SQL novo nem ativa serviços pagos.
