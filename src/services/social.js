@@ -2,6 +2,7 @@ import { supabase, initializeAuth } from './auth.js'
 import { SHORT_MAX_SECONDS,shortTarget } from './shorts.js'
 import { attachmentInfo } from './content.js'
 import { mediaPostsQuery } from './mediaPostsQuery.js'
+import { storyPresentation } from './storyEditor.js'
 import { extractHashtags,normalizeTag } from './hashtags.js'
 
 import { appearance } from './mediaFormats.js'
@@ -238,12 +239,23 @@ export const socialApi={
     }))
   },
   async createStory(file,caption='',options={}) {
-    const type=file?.type.split('/')[0]||'text'
-    if(!['image','video','audio','text'].includes(type))throw new Error('Escolha uma foto, vídeo ou áudio.')
-    if(type==='text'&&!options.text?.trim())throw new Error('Escreva o texto do story.')
-    const user=await identity()
     const upload=file?await this.uploadMedia(file):null
-    return result(supabase.from('itext_stories').insert({author_id:user.id,media_path:upload?.media.storagePath||null,media_type:type,caption:caption.trim().slice(0,280),text_content:(options.text||'').trim().slice(0,1000),background_color:options.background||'#102a43',font_style:options.font||'classic'}).select('id').single())
+    return this.publishStory({...options,caption,media:upload?.media||null})
+  },
+  async publishStory({id=crypto.randomUUID(),media=null,caption='',text='',background='#102a43',font='classic',presentation={}}) {
+    const user=await identity(),type=media?.type||'text'
+    if(!['image','video','audio','text'].includes(type))throw new Error('Escolha uma foto, vídeo ou áudio.')
+    if(type==='text'&&!text.trim())throw new Error('Escreva o texto do story.')
+    if(media&&!media.storagePath?.startsWith(user.id+'/'))throw new Error('Envie uma mídia da sua própria conta.')
+    const payload={id,author_id:user.id,media_path:media?.storagePath||null,media_type:type,caption:caption.trim().slice(0,280),text_content:text.trim().slice(0,1000),background_color:background,font_style:font,presentation:storyPresentation(presentation)}
+    const saved=await supabase.from('itext_stories').insert(payload).select('id').single()
+    if(saved.error?.code==='23505'){
+      const existing=await result(supabase.from('itext_stories').select('*').eq('id',id).eq('author_id',user.id).single())
+      const same=Object.entries(payload).every(([key,value])=>key==='presentation'?JSON.stringify(storyPresentation(existing[key]))===JSON.stringify(value):existing[key]===value)
+      if(same)return {id:existing.id}
+    }
+    if(saved.error)throw saved.error
+    return saved.data
   },
   async photoPost(id){
     await identity()

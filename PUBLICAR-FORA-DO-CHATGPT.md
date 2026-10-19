@@ -137,3 +137,10 @@ A atualização inclui comentários com curtidas/respostas, sino de notificaçõ
 Depois do deploy, teste em duas contas: curtir/responder um comentário, conferir o sino da conta destinatária, abrir a resposta pela notificação, marcar os avisos como lidos e confirmar os contadores. Teste presença com duas abas e uma queda de conexão (expiração em até 90 segundos, além do intervalo de consulta). Clique em avatares no feed, comentários e conversas para abrir o perfil correto. Confirme que curtidas privadas não aparecem no perfil para outra conta; o autor ainda pode receber avisos de curtida. Envie um PDF/áudio/vídeo e um link, confira o download após recarregar e negue o arquivo do grupo privado a uma conta não participante. Crie/edite um grupo e uma página com foto, capa, categoria nova e Não definido, confirmando que outra conta não consegue editar.
 
 O status de presença é aproximado, notificações são internas ao site e arquivos não passam por antivírus neste aplicativo. As demais proteções e limites do README continuam valendo. Nenhum plano pago foi ativado.
+
+
+## Editor de stories e descoberta do site
+
+Após as migrações anteriores, aplique `supabase/migrations/20261019003517_story_editor_presentation.sql`. No projeto atual `qnjanobhsnvrxoraifcc` ela já foi aplicada e conferida. Acrescenta somente a apresentação validada do story e a preserva nas prévias autorizadas de respostas. As políticas de acesso, a expiração e as chaves de mensagens permanecem as anteriores.
+
+O build passa a gerar a página pública de entrada em HTML, `robots.txt` e `sitemap.xml`. Consulte [APARECER-NO-GOOGLE.md](APARECER-NO-GOOGLE.md) para o cadastro gratuito no Google Search Console e no Bing. O site continua usando o nome Itext e o endereço gratuito do Firebase; solicitar indexação não garante posição ou prazo nos resultados.

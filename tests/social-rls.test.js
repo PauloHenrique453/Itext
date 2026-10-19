@@ -27,6 +27,7 @@ async function setup() {
  await db.exec(readFileSync('supabase/migrations/20261018054035_media_viewer_themes_and_story_formats.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018234916_views_hashtags_story_activity.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261019000114_explicit_view_record_policies.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261019003517_story_editor_presentation.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -782,5 +783,25 @@ test('story audience paginates over fifty distinct viewers with the latest real 
   assert.equal(first.views,55);assert.equal(first.rows.length,50);assert.equal(first.has_more,true);assert.equal(second.rows.length,5);assert.equal(second.has_more,false);assert.equal(new Set([...first.rows,...second.rows].map(row=>row.id)).size,55)
   assert.equal(first.latest.id,'00000000-0000-0000-0000-000000000154');assert.equal(first.rows[0].id,first.latest.id)
   assert.equal((await db.query("select public.itext_story_audience($1,'likes',0) as a",[story])).rows[0].a.rows.length,0)
+ }finally{await db.close()}
+})
+
+
+test('story editor persists only allowed presentation, keeps stories immutable and preserves private reply previews',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const style={size:'large',align:'left',position:'top',color:'yellow',fit:'cover',filter:'mono',muted:true}
+  const sid='00000000-0000-0000-0000-000000000901'
+  await db.query("insert into public.itext_stories(id,author_id,media_type,text_content,presentation) values($1,$2,'text','Edited story',$3)",[sid,ONE,JSON.stringify(style)])
+  assert.deepEqual((await db.query('select presentation from public.itext_stories where id=$1',[sid])).rows[0].presentation,style)
+  for(const invalid of [null,[],{size:null},{size:999},{size:'huge'},{align:'justify'},{position:'fixed'},{color:'url(https://example.test)'},{fit:'fill'},{filter:'blur(10px)'},{muted:'true'},{url:'https://example.test'},{css:'position:fixed'}])await assert.rejects(db.query("insert into public.itext_stories(author_id,media_type,text_content,presentation) values($1,'text','Invalid',$2)",[ONE,JSON.stringify(invalid)]))
+  await as(db,TWO)
+  await assert.rejects(db.query("insert into public.itext_stories(author_id,media_type,text_content,presentation) values($1,'text','Forged',$2)",[ONE,JSON.stringify(style)]))
+  await assert.rejects(db.query("update public.itext_stories set presentation='{}' where id=$1",[sid]))
+  const message=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version,story_id) values($1,$2,'Reply',0,$3) returning id",[TWO,ONE,sid])).rows[0].id
+  assert.deepEqual((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows[0].story.presentation,style)
+  await as(db,THREE);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0)
+  await as(db);await assert.rejects(db.query('select presentation from public.itext_stories'))
  }finally{await db.close()}
 })

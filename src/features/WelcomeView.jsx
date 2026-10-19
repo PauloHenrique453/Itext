@@ -26,8 +26,8 @@ export function WelcomeContent({ providers, loading, error, busy, onLogin, onRet
     <div className="entry-main">
       <section className="entry-story" aria-labelledby="entry-headline">
         <p className="entry-eyebrow"><span /> ENCONTRE SEU ESPAÇO</p>
-        <h1 id="entry-headline">Pessoas.{' '}<br />Ideias.<br /><span>Conexões reais.</span></h1>
-        <p className="entry-intro">Uma conversa pode ser o começo de algo. Entre no Itext para compartilhar seu mundo e fazer parte da comunidade.</p>
+        <h1 id="entry-headline">Itext.{' '}<br />Ideias.<br /><span>Conexões reais.</span></h1>
+        <p className="entry-intro">No Itext, compartilhe publicações, stories e vídeos no Ishort. Encontre pessoas, participe de comunidades e converse em tempo real.</p>
         <div className="entry-features"><div><UsersRound size={21} aria-hidden="true"/><p><strong>Seu lugar na comunidade</strong><span>Compartilhe ideias e participe de grupos.</span></p></div><div><MessageCircle size={21} aria-hidden="true"/><p><strong>Conversas que continuam</strong><span>Mensagens salvas e entrega em tempo real.</span></p></div></div>
         <div className="entry-art" aria-hidden="true"><span /><span /><span /><i>i<span>text</span><ArrowRight size={42} /></i></div>
       </section>

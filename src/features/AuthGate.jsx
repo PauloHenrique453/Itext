@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { initializeAuth, supabase } from '../services/auth.js'
 import { loginErrorMessage } from '../services/loginOptions.js'
 import { lockChatSession } from '../services/chatSession.js'
-import WelcomeView from './WelcomeView.jsx'
+import WelcomeView,{WelcomeContent} from './WelcomeView.jsx'
 import DeviceGate from './DeviceGate.jsx'
 import { deviceSecurity } from '../services/deviceSecurity.js'
 
@@ -30,7 +30,7 @@ export default function AuthGate({ children }) {
     return () => { active = false; subscription?.unsubscribe() }
   }, [])
 
-  if (!ready) return <div className="entry-loading" role="status"><span className="entry-spinner" aria-hidden="true" /><p>Abrindo o Itext…</p></div>
+  if (!ready) return <WelcomeContent providers={[]} loading error="" busy="" />
   if (!session?.user) return <WelcomeView initialError={error} />
   return <DeviceGate key={session.user.id} userId={session.user.id} recoveryError={error}>{children}</DeviceGate>
 }
