@@ -1,6 +1,7 @@
 import { supabase, initializeAuth } from './auth.js'
 import { SHORT_MAX_SECONDS,shortTarget } from './shorts.js'
 import { attachmentInfo } from './content.js'
+import { mediaPostsQuery } from './mediaPostsQuery.js'
 import { extractHashtags,normalizeTag } from './hashtags.js'
 
 import { appearance } from './mediaFormats.js'
@@ -252,7 +253,7 @@ export const socialApi={
   },
   async photoFeed(cursor=null){
     const user=await identity()
-    let query=supabase.from('itext_posts').select('id,author_id,media,created_at').is('group_id',null).neq('author_id',user.id).contains('media',[{type:'image'}]).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(20)
+    let query=mediaPostsQuery(supabase,'id,author_id,media,created_at',{type:'image'}).neq('author_id',user.id)
     if(cursor)query=query.or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`)
     const rows=await result(query)
     if(!rows.length)return {rows:[],hasMore:false,cursor:null}
@@ -302,7 +303,7 @@ export const socialApi={
   async ownPosts() { const user=await identity(false); return user?loadFeed('chronological',{authorId:user.id}):{posts:[]} },
   async shortFeed({after=null,following=false,postId=null}={}){
     const user=await identity()
-    let query=supabase.from('itext_posts').select('id,author_id,text,media,created_at,edited_at').is('group_id',null).contains('media',[{type:'video',short:true}]).order('created_at',{ascending:false}).order('id',{ascending:false}).limit(20)
+    let query=mediaPostsQuery(supabase,'id,author_id,text,media,created_at,edited_at',{type:'video',short:true})
     if(after)query=query.or(`created_at.lt.${after.createdAt},and(created_at.eq.${after.createdAt},id.lt.${after.id})`)
     if(postId)query=query.eq('id',postId)
     if(following){const follows=await result(supabase.from('itext_follows').select('following_id').eq('follower_id',user.id));if(!follows.length)return {posts:[],hasMore:false,cursor:null};query=query.in('author_id',follows.map(row=>row.following_id))}
