@@ -16,3 +16,14 @@ html.has-home-pull { overscroll-behavior-y:contain; }
 @keyframes itext-glow { from { filter:drop-shadow(0 0 3px #1683ff80); } to { filter:drop-shadow(0 0 11px #63c7ff); } }
 @media(max-width:640px){.feed-view .feed-header { padding-inline:12px; }}
 @media(prefers-reduced-motion:reduce){.feed-brand-refresh.is-refreshing :is(.feed-brand-orbit,img) { animation:none; }.feed-brand-refresh.is-refreshing > img { filter:drop-shadow(0 0 7px #1683ff); }.feed-view .feed-content { transition:none; }}
+
+/* Creator-owned artwork sits behind the feed controls, in the existing header. */
+.feed-view .feed-header.feed-header--creator { isolation:isolate; overflow:hidden; background:#000; backdrop-filter:none; }
+.creator-banner { position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; background:#000; }
+.creator-banner-image { display:block; width:100%; height:100%; object-fit:cover; object-position:center 30%; transform:scale(1.08) translateX(2%); animation:creator-banner-drift 28s ease-in-out infinite alternate; user-select:none; }
+.creator-banner-shade { position:absolute; inset:0; background:linear-gradient(180deg,#00000038,#00000080); }
+.feed-header--creator > .feed-brand-row,.feed-header--creator > .feed-tabs { position:relative; z-index:1; }
+.feed-header--creator .feed-tabs > button { color:#c6cbd4; text-shadow:0 1px 4px #000; }
+.feed-header--creator .feed-tabs > button.is-active { color:#fff; }
+@keyframes creator-banner-drift { from { transform:scale(1.08) translateX(2%); } to { transform:scale(1.08) translateX(-2%); } }
+@media(prefers-reduced-motion:reduce){.creator-banner-image { animation:none; transform:none; }}
