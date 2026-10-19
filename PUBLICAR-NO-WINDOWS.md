@@ -31,7 +31,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3edfc0e78820f11e0967f0242afb409cab4edd01.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/333fb48148241175df816dca1481c198817eae9f.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +103,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/3edfc0e78820f11e0967f0242afb409cab4edd01.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/333fb48148241175df816dca1481c198817eae9f.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -305,3 +305,20 @@ Depois de **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5. No **Iní
 O original editável continua limitado a **200 MB**, e cada trecho gerado a **dez minutos e 50 MB**. Sem cortar, vídeos do feed até 50 MB continuam sem limite artificial de duração. Ao selecionar diversos arquivos junto de um vídeo grande, edite esse vídeo primeiro e depois selecione os demais anexos, conforme o aviso exibido. Fechar após preparar parte dos trechos retorna os envios concluídos ao rascunho.
 
 Passaram 73 testes automatizados, build e SSR. Não houve acesso de navegador para validar aparência/cliques e nem confirmação da versão publicada ao vivo nesta sessão; confira o fluxo no seu aparelho após executar o bloco.
+
+
+## Nova atualização: visualizações, hashtags e atividade do story
+
+As duas migrações de visualizações/hashtags/atividade e políticas internas já foram aplicadas ao Supabase deste projeto. Não precisa executar SQL, recriar contas ou configurar chaves. Execute o bloco completo **Atualizar o Itext já publicado** desta página atualizada para baixar a interface e publicar; rodar apenas o deploy na pasta antiga não instala os novos recursos.
+
+Depois de **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5 e confira:
+
+1. Digite `#nome` no texto de uma publicação: a prévia de hashtags fica azul. Publique e toque na hashtag para abrir os posts que a usam. Ela fica verde quando está nas tendências reais das últimas 24 horas, com pelo menos três publicações e duas pessoas diferentes; repetir sozinho não basta. Tags de grupos não entram nas tendências.
+2. Com outra conta real, mantenha uma publicação visível por cerca de dois segundos. O contador de olho registra a conta uma vez; recarregar não soma outra visualização. A própria conta do autor não soma, e não foram preenchidas visualizações antigas.
+3. Veja um story com outra conta. No perfil do dono, abra o story: o rodapé mostra a foto de quem viu por último e a contagem. Toque na foto/contador para abrir Visualizações, Curtidas e Respostas; a lista tem rolagem e Ver mais pessoas. O resumo atualiza a cada 20 segundos; na lista há Atualizar.
+4. Curta e responda a esse story. O dono vê os indicadores e pode abrir a conversa. A mensagem recebida mostra a foto/prévia do story respondido; tocar amplia a prévia. Fotos, vídeos, textos e áudios têm representações correspondentes.
+5. Confira celular/tablet/computador, nome comprido e lista de comentários/atividade com rolagem. As mensagens comuns e a proteção opcional continuam usando as mesmas permissões e chaves.
+
+A audiência é exclusiva do dono do story. Após as 24 horas, a prévia de uma resposta já enviada continua disponível na conversa autorizada; apagar o story ou a mensagem impede novas prévias. Ocultar/limpar a conversa só para si e bloqueios completos também são respeitados. Links de mídia já assinados no chat podem continuar válidos por até 60 segundos; arquivos já baixados não podem ser recuperados remotamente.
+
+Passaram 80 testes automatizados, build, verificações estáticas e SSR. A interface ainda precisa da conferência acima em aparelhos reais, pois não há ferramenta de navegador disponível nesta sessão. Nenhum dado de teste foi inserido no banco de produção e nenhum serviço pago foi ativado.
