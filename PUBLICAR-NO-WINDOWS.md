@@ -1,5 +1,7 @@
 # Publicar o Itext pelo Windows
 
+**Atualização atual:** correção do erro `invalid input syntax for type json` no Ishort e ajuste do campo de mensagens no celular, incluindo o teclado aberto. Para instalar, execute o bloco completo de **Atualizar o Itext já publicado** abaixo. Não basta executar o deploy de uma pasta que ainda contém o código antigo.
+
 O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de comentários/respostas, notificações, presença, espaços, curtidas rápidas, visualizador de fotos, temas e novos formatos de stories. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
 ## 1. Conferir o Node.js
@@ -31,7 +33,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/333fb48148241175df816dca1481c198817eae9f.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/30d1d598f1240eed4c8894837ff71d2c554805fa.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -103,7 +105,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/333fb48148241175df816dca1481c198817eae9f.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/30d1d598f1240eed4c8894837ff71d2c554805fa.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -322,3 +324,19 @@ Depois de **Deploy complete!**, aceite Atualizar agora ou use Ctrl+F5 e confira:
 A audiência é exclusiva do dono do story. Após as 24 horas, a prévia de uma resposta já enviada continua disponível na conversa autorizada; apagar o story ou a mensagem impede novas prévias. Ocultar/limpar a conversa só para si e bloqueios completos também são respeitados. Links de mídia já assinados no chat podem continuar válidos por até 60 segundos; arquivos já baixados não podem ser recuperados remotamente.
 
 Passaram 80 testes automatizados, build, verificações estáticas e SSR. A interface ainda precisa da conferência acima em aparelhos reais, pois não há ferramenta de navegador disponível nesta sessão. Nenhum dado de teste foi inserido no banco de produção e nenhum serviço pago foi ativado.
+
+
+## Correção atual: Ishort e campo de mensagens no celular
+
+O filtro de vídeos enviava um array do PostgreSQL para uma coluna JSONB. Isso causava o erro `invalid input syntax for type json` antes de carregar os vídeos. O filtro agora envia JSON válido. A mesma correção foi aplicada à navegação por fotos. O Ishort continua mostrando publicações próprias para ele, sem incluir automaticamente vídeos comuns nem expor grupos privados. A consulta corrigida foi conferida no Supabase e encontrou uma publicação real do Ishort, sem modificar dados.
+
+No chat, o campo de digitação não fica mais dentro de uma caixa com limite percentual e rolagem própria. O histórico ocupa o espaço restante; o campo e Enviar ficam juntos no rodapé. A altura acompanha a área visível do navegador quando o teclado abre, fecha ou desloca a tela. Textos longos têm altura limitada conforme esse espaço, e o fundo da página fica travado enquanto a conversa ocupa a tela no celular. Ao sair, a rolagem anterior é restaurada. A busca passou para a lupa no cabeçalho, liberando espaço para conversar; tocar novamente fecha a busca. As informações de privacidade continuam disponíveis.
+
+Depois de executar o bloco completo e receber **Deploy complete!**, aceite **Atualizar agora** ou recarregue o site. No Edge do celular, confira:
+
+1. Abra **Ishort**: o vídeo publicado deve carregar sem o erro de JSON. Teste pausa, som e rolagem.
+2. Abra uma conversa, toque no campo e digite várias linhas com o teclado aberto. Campo, texto e botão Enviar devem aparecer por inteiro.
+3. Role mensagens antigas, responda a uma mensagem e abra/feche os emojis. O documento ao fundo não deve subir nem criar uma faixa vazia.
+4. Feche o teclado, gire o celular, abra a lupa para buscar e volte à lista de conversas. Confira também no computador.
+
+Passaram **83 testes automatizados**, build, verificação de referências JavaScript e renderização SSR. Um teste usa o SDK real e PostgreSQL local para reproduzir o erro JSON e comprovar o filtro corrigido, incluindo a exclusão de grupos e vídeos comuns. Os testes de viewport simulam redimensionamento/deslocamento do teclado, rotação, preservação do histórico e saída da conversa. Não substituem a conferência visual no Edge: o runtime do navegador não está disponível nesta sessão, e nenhum teste visual ou de teclado físico foi realizado. A publicação no Firebase ainda precisa ser feita no PowerShell autenticado; não houve migração, alteração de permissões ou ativação de serviço pago nesta correção.
