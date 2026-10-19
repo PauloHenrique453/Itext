@@ -1,6 +1,6 @@
 # Publicar o Itext pelo Windows
 
-**Atualização atual:** Início com símbolo centralizado e animação ao puxar para atualizar; Ishort reorganizado para celular e tablet, com botão de som na coluna de ações e adaptação para telas baixas. Execute o bloco completo de **Atualizar o Itext já publicado** para baixar e publicar esta versão.
+**Atualização atual:** banner do criador no Início, com fundo preto, símbolos comunistas vermelhos e movimento suave atrás do ícone e das abas. Execute o bloco completo de **Atualizar o Itext já publicado** para publicar a arte e a interface.
 
 O Itext já foi publicado em https://itext-1b9da.web.app. O Supabase já recebeu as atualizações de comentários/respostas, notificações, presença, espaços, curtidas rápidas, visualizador de fotos, temas e novos formatos de stories. Para atualizar a instalação existente, use a seção **Atualizar o Itext já publicado**, ao final desta página. As etapas iniciais abaixo servem para preparar uma instalação nova.
 
@@ -33,7 +33,7 @@ Cole o bloco completo abaixo no PowerShell. Ele baixa uma versão fixa e revisad
     $itextSuffix = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
     $itextDestination = Join-Path $itextDocuments ('Itext-' + $itextSuffix)
     $itextZip = $itextDestination + '.zip'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/e086d528bc0c2c4e5a6db26a8409597284f4a237.zip' -OutFile $itextZip
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/0825ffcd48fd4cd562ac128600585e1b69572b15.zip' -OutFile $itextZip
     Expand-Archive -LiteralPath $itextZip -DestinationPath $itextDestination
     $itextFolders = @(Get-ChildItem -LiteralPath $itextDestination -Directory)
     if ($itextFolders.Count -ne 1) { throw 'A estrutura do arquivo baixado nao era a esperada.' }
@@ -105,7 +105,7 @@ Cole o bloco completo abaixo. Ele baixa a versão fixa revisada, guarda uma cóp
     New-Item -ItemType Directory -Path $itextTemporario | Out-Null
     $itextArquivo = Join-Path $itextTemporario 'codigo.zip'
     $itextExtraido = Join-Path $itextTemporario 'codigo'
-    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/e086d528bc0c2c4e5a6db26a8409597284f4a237.zip' -OutFile $itextArquivo
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/PauloHenrique453/Itext/archive/0825ffcd48fd4cd562ac128600585e1b69572b15.zip' -OutFile $itextArquivo
     Expand-Archive -LiteralPath $itextArquivo -DestinationPath $itextExtraido
     $itextFonte = @(Get-ChildItem -LiteralPath $itextExtraido -Directory)
     if ($itextFonte.Count -ne 1) { throw 'O arquivo baixado nao tem a estrutura esperada.' }
@@ -394,3 +394,12 @@ Depois de executar o bloco completo e receber **Deploy complete!**, aceite Atual
 5. Confira também o arquivo de verificação do Google e o sitemap, que seguem incluídos. A interface nova não exige nova verificação da propriedade no Search Console.
 
 Passaram **94 testes automatizados**, build, verificação de referências JavaScript e SSR. Os testes incluem gesto vertical/horizontal, limiar, falha, prevenção de solicitações duplicadas, medidas de viewport, rotação mantendo o vídeo, limpeza dos eventos e retomada de som sem reiniciar vídeos ocultos. Também foram conferidos os controles renderizados, os arquivos do editor de stories e a preservação do arquivo original de verificação do Google. A ferramenta de navegador não está disponível nesta sessão: alinhamento visual, toque e reprodução no Edge/Safari precisam da conferência nos aparelhos. A publicação no Firebase depende do PowerShell autenticado. Esta revisão não exige SQL novo nem ativa serviços pagos.
+
+
+## Banner do criador no topo do Início
+
+A faixa atrás do símbolo do Itext e das abas Para você, Recentes e Seguindo recebeu o banner solicitado: fundo preto com foices, martelos e estrelas vermelhas. A imagem desliza lentamente; em aparelhos com Reduzir movimento, fica estática. As abas mantêm texto claro e os controles ficam em uma camada acima da arte. A faixa é uma peça global definida pelo criador no projeto.
+
+Execute o bloco completo **Atualizar o Itext já publicado** e espere **Deploy complete!**. Aceite Atualizar agora ou recarregue o site. Confira no celular, tablet e computador o enquadramento do banner, a leitura das abas e o botão do símbolo para atualizar o feed. A arte é servida pelo próprio site em `/banners/creator-communism.png`.
+
+O build, a verificação de referências JavaScript e as conferências SSR do Início, Ishort e stories passaram. A imagem gerada tem 2172 × 724 pixels; os bytes do arquivo foram preservados na pasta publicada e o teste HTTP local retornou a imagem correta com status 200. O arquivo original de verificação do Google e o sitemap continuam no pacote. A aparência final nos aparelhos ainda precisa dessa conferência após o deploy, pois a ferramenta de navegador não está disponível nesta sessão. Não é necessário SQL novo para este banner.
