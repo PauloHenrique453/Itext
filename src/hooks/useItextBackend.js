@@ -23,8 +23,10 @@ export function useItextBackend() {
       function mergeLike(post){const changed=likeResults.current.get(post.id);return changed&&changed.at>=requestedAt?{...post,...changed.value}:post}
       setState((current) => ({ ...current, user: bootstrap.user, posts: feed.posts.map(mergeLike), ownPosts: ownFeed.posts.map(mergeLike), communities: bootstrap.communities, pages: bootstrap.pages, profiles: bootstrap.profiles || [], status }))
       setError('')
+      return true
     } catch (requestError) {
       setError(requestError.message || 'Servidor Itext indisponível.')
+      return false
     } finally {
       setLoading(false)
     }

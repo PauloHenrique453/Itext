@@ -1,0 +1,18 @@
+html.has-home-pull { overscroll-behavior-y:contain; }
+.feed-view .feed-header { height:auto; min-height:104px; padding:0 20px; }
+.feed-brand-row { position:relative; display:grid; place-items:center; height:62px; }
+.feed-brand-refresh { position:relative; isolation:isolate; display:grid; place-items:center; width:52px; height:52px; padding:7px; border:0; border-radius:50%; background:transparent; cursor:pointer; transform:translateY(min(14px,calc(var(--feed-pull,0px) / 4))); }
+.feed-brand-refresh > img { display:block; width:38px; height:38px; border-radius:12px; user-select:none; }
+.feed-brand-orbit { position:absolute; inset:1px; z-index:-1; border-radius:50%; opacity:0; background:conic-gradient(from 0deg,transparent 0deg,#73c6ff 95deg,#1683ff 175deg,transparent 265deg); mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 0); -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 0); }
+.feed-brand-refresh:is(.is-pulling,.is-ready) .feed-brand-orbit { opacity:.85; transform:rotate(calc(var(--pull-progress,0) * 300deg)); }
+.feed-brand-refresh.is-ready > img { filter:drop-shadow(0 0 9px #1683ffb0); }
+.feed-brand-refresh.is-refreshing .feed-brand-orbit { opacity:1; animation:itext-orbit .85s linear infinite; }
+.feed-brand-refresh.is-refreshing > img { animation:itext-glow 1s ease-in-out infinite alternate; }
+.feed-view .feed-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0; }
+.feed-view .feed-tabs > button { min-height:42px; padding:9px 4px 12px; }
+.feed-view .feed-content { transform:translateY(var(--feed-pull,0px)); transition:transform .18s ease-out; }
+.feed-view:is(.is-pulling,.is-ready) .feed-content { transition:none; }
+@keyframes itext-orbit { to { transform:rotate(360deg); } }
+@keyframes itext-glow { from { filter:drop-shadow(0 0 3px #1683ff80); } to { filter:drop-shadow(0 0 11px #63c7ff); } }
+@media(max-width:640px){.feed-view .feed-header { padding-inline:12px; }}
+@media(prefers-reduced-motion:reduce){.feed-brand-refresh.is-refreshing :is(.feed-brand-orbit,img) { animation:none; }.feed-brand-refresh.is-refreshing > img { filter:drop-shadow(0 0 7px #1683ff); }.feed-view .feed-content { transition:none; }}

@@ -58,7 +58,7 @@ export function StoryCanvas({type,url,text='',background='#102a43',font='classic
  return <div className={`story-canvas story-canvas--${type} story-size-${style.size} story-align-${style.align} story-position-${style.position}`} style={{backgroundColor:background,color:light?'#111827':'#ffffff',fontFamily:storyFonts[font]||storyFonts.classic,'--story-text-color':color,'--story-text-panel':color==='#111111'?'#ffffffcc':'#0009','--story-fit':style.fit,'--story-filter':storyFilters[style.filter]}}>{type==='image'&&url?<img src={url} alt={caption||'Foto do story'}/>:type==='video'&&url?<video ref={videoRef} key={url} src={url} controls playsInline preload="metadata" muted={style.muted} onTimeUpdate={onVideoTime} onLoadedMetadata={onVideoMetadata}/>:type==='audio'&&url?<AudioPlayer key={url} src={url} title="Áudio do story"/>:type!=='text'?<p className="story-media-empty">{preview?'Escolha uma mídia para visualizar.':'Mídia indisponível. Tente atualizar o story.'}</p>:null}{text?<p className="story-text-overlay">{text}</p>:type==='text'?<p className="story-text-placeholder">Seu texto aparece aqui</p>:null}</div>
 }
 
-export default function Stories({user,authorId=null,onNotify,onMessage}) {
+export default function Stories({user,authorId=null,onNotify,onMessage,refreshKey=0}) {
   const [rows,setRows]=useState([])
   const [selected,setSelected]=useState(()=>!authorId&&typeof window!=='undefined'?storyIdFromSearch(window.location.search):null)
   const selectedRef=useRef(selected);selectedRef.current=selected
@@ -82,7 +82,7 @@ export default function Stories({user,authorId=null,onNotify,onMessage}) {
     const load=()=>{void refresh().catch(issue=>{if(active){setError(issue.message);setLoading(false)}})}
     load();const timer=setInterval(load,45000)
     return()=>{active=false;version.current++;clearInterval(timer)}
-  },[authorId,user.id])
+  },[authorId,user.id,refreshKey])
   // Expiration is enforced by Postgres; this timer also closes a story left open past its expiry.
   useEffect(()=>{const timer=setInterval(()=>setRows(current=>current.some(row=>new Date(row.expires_at).getTime()<=Date.now())?current.filter(row=>new Date(row.expires_at).getTime()>Date.now()):current),1000);return()=>clearInterval(timer)},[])
   const story=rows.find(row=>row.id===selected)

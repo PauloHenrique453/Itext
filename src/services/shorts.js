@@ -37,3 +37,9 @@ export function syncShortPlayback(node,allowed,onBlocked){
  else void (async()=>{try{await node.play();if(!playbackIntents.get(node)?.allowed)node.pause()}catch{if(playbackIntents.get(node)===intent)onBlocked()}})()
  return()=>{if(playbackIntents.get(node)===intent){playbackIntents.set(node,{allowed:false});node.pause()}}
 }
+
+export function setShortSound(node,muted,allowed,onBlocked){
+ if(!node)return
+ node.muted=muted
+ if(!muted&&allowed)syncShortPlayback(node,true,onBlocked)
+}
