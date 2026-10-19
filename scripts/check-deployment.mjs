@@ -20,7 +20,7 @@ export async function checkDeployment(config, fetcher = fetch) {
   const auth = await settings.json()
   if (auth.external?.google !== true) throw new Error('Ative o provedor Google no Supabase antes de publicar.')
   checks.push('Provedor Google habilitado')
-  for (const table of ['itext_public_profiles', 'itext_posts', 'itext_page_counts', 'itext_group_counts', 'itext_post_counts', 'itext_profile_counts']) {
+  for (const table of ['itext_public_profiles', 'itext_posts', 'itext_page_counts', 'itext_group_counts', 'itext_post_counts', 'itext_profile_counts', 'itext_post_view_counts']) {
     const response = await request(`/rest/v1/${table}?select=*&limit=0`)
     if (!response.ok) throw new Error(`A estrutura ${table} não está acessível. Confira a aplicação de supabase/social.sql e das migrações posteriores.`)
   }

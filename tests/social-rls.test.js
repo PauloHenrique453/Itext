@@ -25,6 +25,8 @@ async function setup() {
  await db.exec(readFileSync('supabase/migrations/20261018044842_stories_requests_and_message_actions.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018051650_comments_notifications_presence_spaces.sql','utf8'))
  await db.exec(readFileSync('supabase/migrations/20261018054035_media_viewer_themes_and_story_formats.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261018234916_views_hashtags_story_activity.sql','utf8'))
+ await db.exec(readFileSync('supabase/migrations/20261019000114_explicit_view_record_policies.sql','utf8'))
  await db.query('insert into auth.users(id) values($1),($2),($3)',[ONE,TWO,THREE])
  return db
  } catch(error) { await db.close(); throw new Error(error.message) }
@@ -693,5 +695,92 @@ test('Ishort video discovery uses real post interactions and retains author owne
   await as(db,ONE);await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
   await as(db,TWO);assert.equal((await db.query(query)).rows.length,0)
   await assert.rejects(db.query('select * from public.itext_set_post_like($1,true)',[post]))
+ }finally{await db.close()}
+})
+
+test('post views count distinct authorized accounts, exclude the author and reject anonymous, blocked and private-group access',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE);const post=(await db.query("insert into public.itext_posts(author_id,text) values($1,'Real view test') returning id",[ONE])).rows[0].id
+  assert.equal(Number((await db.query('select public.itext_record_post_view($1) as n',[post])).rows[0].n),0)
+  await as(db,TWO);for(let i=0;i<3;i++)assert.equal(Number((await db.query('select public.itext_record_post_view($1) as n',[post])).rows[0].n),1)
+  await assert.rejects(db.query('select * from itext_private.post_views'))
+  await as(db,THREE);assert.equal(Number((await db.query('select public.itext_record_post_view($1) as n',[post])).rows[0].n),2)
+  await as(db);assert.equal(Number((await db.query('select views from public.itext_post_view_counts where id=$1',[post])).rows[0].views),2);await assert.rejects(db.query('select public.itext_record_post_view($1)',[post]))
+  await as(db,ONE);const group=(await db.query("select public.itext_create_group('Private view test','','private','open') as id")).rows[0].id
+  const secret=(await db.query("insert into public.itext_posts(author_id,text,group_id) values($1,'Private',$2) returning id",[ONE,group])).rows[0].id
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO])
+  await as(db,TWO);await assert.rejects(db.query('select public.itext_record_post_view($1)',[post]));assert.equal((await db.query('select * from public.itext_post_view_counts where id=$1',[post])).rows.length,0)
+  await as(db,THREE);await assert.rejects(db.query('select public.itext_record_post_view($1)',[secret]))
+ }finally{await db.close()}
+})
+
+test('server hashtags normalize accents/case, reject forged tags and URL fragments; trends use recent public posts and multiple authors',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE)
+  const post=(await db.query("insert into public.itext_posts(author_id,text,tags) values($1,'#Café #café #azul https://example.test/#hidden',array['#forged']) returning id,tags",[ONE])).rows[0]
+  assert.deepEqual(post.tags,['#azul','#café'])
+  await db.query("insert into public.itext_posts(author_id,text) values($1,'#Café again')",[ONE])
+  await as(db,TWO);await db.query("insert into public.itext_posts(author_id,text) values($1,'#café third')",[TWO])
+  await as(db,ONE)
+  const group=(await db.query("select public.itext_create_group('Hidden tags','','private','open') as id")).rows[0].id
+  for(let i=0;i<4;i++)await db.query("insert into public.itext_posts(author_id,text,group_id) values($1,'#secret',$2)",[ONE,group])
+  for(let i=0;i<8;i++)await db.query("insert into public.itext_posts(author_id,text) values($1,'#spam')",[ONE])
+  let trends=(await db.query('select * from public.itext_hashtag_trends()')).rows
+  assert.equal(trends.find(row=>row.tag==='#café').is_trending,true);assert.equal(trends.find(row=>row.tag==='#spam').is_trending,false);assert.ok(!trends.some(row=>row.tag==='#secret'||row.tag==='#forged'||row.tag==='#hidden'))
+  await db.query("update public.itext_posts set text='Sem hashtag',tags=array['#forged'] where id=$1",[post.id]);assert.deepEqual((await db.query('select tags from public.itext_posts where id=$1',[post.id])).rows[0].tags,[])
+  trends=(await db.query('select * from public.itext_hashtag_trends()')).rows;assert.equal(trends.find(row=>row.tag==='#café').is_trending,false)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO]);trends=(await db.query('select * from public.itext_hashtag_trends()')).rows;assert.equal(Number(trends.find(row=>row.tag==='#café').uses),1)
+ }finally{await db.close()}
+})
+
+test('only the story owner sees its audience with actual likes/replies; story previews stay private after expiry and honor hiding and deletion',async()=>{
+ const db=await setup()
+ try{
+  const path=`${ONE}/story-context.jpg`
+  await as(db,ONE);await db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1)",[path])
+  const story=(await db.query("insert into public.itext_stories(author_id,media_path,media_type) values($1,$2,'image') returning id",[ONE,path])).rows[0].id
+  await db.query('select public.itext_record_story_view($1)',[story])
+  await as(db,TWO);await db.query('select public.itext_record_story_view($1)',[story]);await db.query('select public.itext_record_story_view($1)',[story]);await db.query('insert into public.itext_story_likes(story_id,user_id) values($1,$2)',[story,TWO])
+  const message=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version,story_id) values($1,$2,'Reply',0,$3) returning id",[TWO,ONE,story])).rows[0].id
+  await assert.rejects(db.query('select public.itext_story_audience($1)',[story]));await assert.rejects(db.query('select * from itext_private.story_views'))
+  await as(db,ONE);let audience=(await db.query('select public.itext_story_audience($1) as a',[story])).rows[0].a
+  assert.equal(audience.views,1);assert.equal(audience.likes,1);assert.equal(audience.replies,1);assert.equal(audience.latest.id,TWO);assert.equal(audience.rows[0].liked,true);assert.equal(audience.rows[0].replies,1)
+  await as(db,THREE);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0);await assert.rejects(db.query('select public.itext_story_audience($1)',[story]))
+  await db.exec('reset role');await db.query("update public.itext_stories set created_at=now()-interval '2 days',expires_at=now()-interval '1 day' where id=$1",[story])
+  await as(db,TWO);assert.equal((await db.query('select * from public.itext_stories where id=$1',[story])).rows.length,0)
+  const preview=(await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows[0];assert.equal(preview.story.media_path,path);assert.equal((await db.query('select * from storage.objects where name=$1',[path])).rows.length,1)
+  await as(db,THREE);assert.equal((await db.query('select * from storage.objects where name=$1',[path])).rows.length,0)
+  await as(db,TWO);await db.query("select public.itext_message_action($1,'hide')",[message]);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0);assert.equal((await db.query('select * from storage.objects where name=$1',[path])).rows.length,0)
+  await as(db,ONE);await db.query('select public.itext_delete_story($1)',[story]);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0)
+ }finally{await db.close()}
+})
+
+test('story reply previews revoke on conversation clear, message deletion and full blocks without exposing expired stories to outsiders',async()=>{
+ const db=await setup()
+ try{
+  const path=`${ONE}/private-reply.png`;await as(db,ONE);await db.query("insert into storage.objects(bucket_id,name) values('itext-media',$1)",[path])
+  const story=(await db.query("insert into public.itext_stories(author_id,media_path,media_type) values($1,$2,'image') returning id",[ONE,path])).rows[0].id
+  await as(db,TWO);const message=(await db.query("insert into public.direct_messages(sender_id,recipient_id,body,encryption_version,story_id) values($1,$2,'Preview',0,$3) returning id",[TWO,ONE,story])).rows[0].id
+  await db.exec('reset role');await db.query("update public.itext_stories set created_at=now()-interval '2 days',expires_at=now()-interval '1 day' where id=$1",[story])
+  await as(db,TWO);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,1)
+  await db.query("select public.itext_conversation_action($1,'clear')",[ONE]);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0);assert.equal((await db.query('select * from storage.objects where name=$1',[path])).rows.length,0)
+  await as(db,ONE);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,1)
+  await db.query("insert into public.itext_blocks(blocker_id,blocked_id,scope) values($1,$2,'all')",[ONE,TWO]);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0)
+  await db.query('delete from public.itext_blocks where blocker_id=$1 and blocked_id=$2',[ONE,TWO]);await as(db,TWO);await db.query("select public.itext_message_action($1,'delete')",[message]);await as(db,ONE);assert.equal((await db.query('select * from public.itext_story_message_previews($1)',[[message]])).rows.length,0)
+ }finally{await db.close()}
+})
+
+test('story audience paginates over fifty distinct viewers with the latest real viewer first and empty like/reply filters',async()=>{
+ const db=await setup()
+ try{
+  await as(db,ONE);const story=(await db.query("insert into public.itext_stories(author_id,media_type,text_content) values($1,'text','Audience') returning id",[ONE])).rows[0].id
+  await db.exec('reset role')
+  for(let i=100;i<155;i++){const uid='00000000-0000-0000-0000-'+String(i).padStart(12,'0');await db.query('insert into auth.users(id) values($1)',[uid]);await db.query("insert into itext_private.story_views(story_id,viewer_id,last_seen_at) values($1,$2,clock_timestamp()+($3::integer*interval '1 second'))",[story,uid,i])}
+  await as(db,ONE);const first=(await db.query("select public.itext_story_audience($1,'views',0) as a",[story])).rows[0].a,second=(await db.query("select public.itext_story_audience($1,'views',50) as a",[story])).rows[0].a
+  assert.equal(first.views,55);assert.equal(first.rows.length,50);assert.equal(first.has_more,true);assert.equal(second.rows.length,5);assert.equal(second.has_more,false);assert.equal(new Set([...first.rows,...second.rows].map(row=>row.id)).size,55)
+  assert.equal(first.latest.id,'00000000-0000-0000-0000-000000000154');assert.equal(first.rows[0].id,first.latest.id)
+  assert.equal((await db.query("select public.itext_story_audience($1,'likes',0) as a",[story])).rows[0].a.rows.length,0)
  }finally{await db.close()}
 })

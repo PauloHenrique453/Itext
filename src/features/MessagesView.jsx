@@ -5,6 +5,7 @@ import { ProfileName } from '../components/ProfileNavigation.jsx'
 import useChatViewport from '../hooks/useChatViewport.js'
 import { revealMessage,restoreChatScroll } from '../services/chatScroll.js'
 import './messages.css'
+import MessageStoryPreview,{useStoryMessagePreviews} from './MessageStoryPreview.jsx'
 import ViewHeader from '../components/ViewHeader.jsx'
 import Avatar from '../components/Avatar.jsx'
 import Modal from '../components/Modal.jsx'
@@ -26,6 +27,7 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
   const [review,setReview]=useState(false)
   const [messages,setMessages]=useState([])
   const [references,setReferences]=useState([])
+  const storyPreviews=useStoryMessagePreviews(messages,(review?'creator':person?.id||'')+':'+user.id)
   const [reactions,setReactions]=useState([])
   const [draft,setDraft]=useState('')
   const [replyTo,setReplyTo]=useState(null)
@@ -262,7 +264,7 @@ export default function MessagesView({user,onNotify,initialPerson,onFindPeople,o
           return <div key={row.id} id={`message-${row.id}`} className={`bubble-row bubble-row--${row.sender_id===user.id?'me':'them'}`}><div className={`message-bubble ${row.deleted_at?'is-deleted':''}`}>
             {review?<small>{name(row.sender_id)} → {name(row.recipient_id)}</small>:null}
             {row.reply_to?<button className="message-quote" onClick={()=>revealMessage(scrollArea.current,document.getElementById(`message-${row.reply_to}`))}><strong>{parent?name(parent.sender_id):'Resposta a uma mensagem'}</strong><span>{parent?quote(parent):'Mensagem anterior indisponível neste histórico.'}</span></button>:null}
-            {row.story_id?<span className="message-story-context">Resposta a um story{row.sender_id===user.id?' que você viu':' do seu perfil'}</span>:null}
+            {row.story_id&&!row.deleted_at?<MessageStoryPreview story={storyPreviews.items[row.id]} own={row.sender_id===user.id} recipient={row.recipient_id===user.id} error={storyPreviews.error} onRetry={storyPreviews.retry}/>:null}
             <p>{row.plaintext}</p>
             {!review?<button className="message-more" aria-label="Ações da mensagem" onClick={()=>{setChoice(row);setDialog('message')}}><MoreHorizontal size={18}/></button>:null}
             {rowReactions.length?<div className="message-reactions">{[...new Set(rowReactions.map(item=>item.emoji))].map(emoji=><button key={emoji} disabled={review||!allowed||actionBusy} aria-label={`Reação ${emoji}`} aria-pressed={rowReactions.some(item=>item.user_id===user.id&&item.emoji===emoji)} onClick={()=>react(row,emoji)}>{emoji} {rowReactions.filter(item=>item.emoji===emoji).length}</button>)}</div>:null}

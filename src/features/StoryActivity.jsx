@@ -1,0 +1,26 @@
+import {useEffect,useRef,useState} from 'react'
+import {Eye,Heart,MessageCircle,RefreshCw} from 'lucide-react'
+import Avatar from '../components/Avatar.jsx'
+import Modal from '../components/Modal.jsx'
+import {ProfileName} from '../components/ProfileNavigation.jsx'
+import {itextApi} from '../services/itextApi.js'
+import useVisibleEvent from '../hooks/useVisibleEvent.js'
+export function StoryExposure({story,user,children}){
+ const area=useRef(null)
+ useVisibleEvent(area,story.id+':'+user.id,user.authenticated&&story.author_id!==user.id,()=>itextApi.recordStoryView(story.id),1200)
+ return <div ref={area} className="story-exposure">{children}</div>
+}
+export function StoryAudienceButton({story,onOpen}){
+ const [data,setData]=useState(null),[error,setError]=useState('')
+ useEffect(()=>{let current=true;setData(null);setError('');const load=()=>{if(document.hidden)return;void itextApi.storyAudience(story.id).then(value=>{if(current){setData(value);setError('')}}).catch(issue=>{if(current)setError(issue.message)})};load();const timer=setInterval(load,20000);document.addEventListener('visibilitychange',load);return()=>{current=false;clearInterval(timer);document.removeEventListener('visibilitychange',load)}},[story.id])
+ return <StoryAudienceSummary data={data} error={error} onOpen={onOpen}/>
+}
+export function StoryAudienceSummary({data,error,onOpen}){
+ return <button type="button" className="story-audience-button" aria-label="Ver visualizações, curtidas e respostas do seu story" onClick={onOpen}>{data?.latest?<Avatar src={data.latest.avatar} alt={data.latest.name} size="sm"/>:<span className="story-audience-symbol"><Eye size={22}/></span>}<span><strong>{data?`${data.views} ${data.views===1?'visualização':'visualizações'}`:error?'Atividade indisponível':'Carregando atividade…'}</strong><small>{data?.latest?`${data.latest.name} viu por último`:'Seu story · Ver curtidas e respostas'}</small></span></button>
+}
+export default function StoryActivity({story,onClose,onMessage}){
+ const [filter,setFilter]=useState('all'),[data,setData]=useState(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[retry,setRetry]=useState(0),version=useRef(0),pending=useRef(false)
+ useEffect(()=>{const ticket=++version.current;setLoading(true);setData(null);setError('');pending.current=true;void itextApi.storyAudience(story.id,filter).then(next=>{if(ticket===version.current)setData(next)}).catch(issue=>{if(ticket===version.current)setError(issue.message)}).finally(()=>{if(ticket===version.current){pending.current=false;setLoading(false)}});return()=>{version.current++}},[story.id,filter,retry])
+ async function more(){if(pending.current||!data?.has_more)return;const ticket=version.current;pending.current=true;setLoading(true);try{const next=await itextApi.storyAudience(story.id,filter,data.next_offset);if(ticket===version.current){setData(previous=>({...next,rows:[...previous.rows,...next.rows.filter(row=>!previous.rows.some(person=>person.id===row.id))]}));setError('')}}catch(issue){if(ticket===version.current)setError(issue.message)}finally{if(ticket===version.current){pending.current=false;setLoading(false)}}}
+ return <Modal title="Atividade do seu story" onClose={onClose} size="md"><div className="story-activity"><p>Somente você pode ver esta lista. <button type="button" className="icon-button" aria-label="Atualizar atividade do story" onClick={()=>setRetry(value=>value+1)}><RefreshCw size={17}/></button></p><div className="story-activity-tabs" role="group" aria-label="Filtrar atividade do story">{[['all','Todos',null],['views','Visualizações',Eye],['likes','Curtidas',Heart],['replies','Respostas',MessageCircle]].map(([id,label,Icon])=><button type="button" key={id} aria-pressed={filter===id} onClick={()=>setFilter(id)}>{Icon?<Icon size={16}/>:null}{label}{data&&id!=='all'?<b>{data[id]}</b>:null}</button>)}</div>{error?<p className="chat-error" role="alert">{error}<button className="text-button" onClick={()=>setRetry(value=>value+1)}><RefreshCw size={16}/>Tentar novamente</button></p>:null}<div className="story-activity-list" role="region" aria-label="Pessoas que interagiram com o story" tabIndex={0}>{data?.rows.map(person=><article key={person.id}><Avatar userId={person.id} src={person.avatar} alt={person.name}/><div><ProfileName id={person.id}>{person.name}</ProfileName><div className="story-activity-flags">{person.last_seen_at?<span><Eye size={14}/>Viu {new Date(person.last_seen_at).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>:null}{person.liked?<span className="is-liked"><Heart size={14} fill="currentColor"/>Curtiu</span>:null}{person.replies>0?<button type="button" onClick={()=>onMessage({id:person.id,name:person.name,avatar_url:person.avatar})}><MessageCircle size={14}/>{person.replies} {person.replies===1?'resposta':'respostas'} · Abrir conversa</button>:null}</div></div></article>)}{loading?<p role="status">Carregando atividade…</p>:!data?.rows.length&&!error?<p className="empty-inline">Nenhuma atividade neste filtro ainda.</p>:null}{data?.has_more?<button className="secondary-button" disabled={loading} onClick={more}>Ver mais pessoas</button>:null}</div></div></Modal>
+}

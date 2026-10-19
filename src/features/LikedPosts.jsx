@@ -1,6 +1,7 @@
 import { useEffect,useRef,useState } from 'react'
 import PostMedia,{ PostLinks } from '../components/PostMedia.jsx'
 import { ProfileName } from '../components/ProfileNavigation.jsx'
+import {HashtagText} from '../components/Hashtags.jsx'
 import { itextApi } from '../services/itextApi.js'
 
 export default function LikedPosts({profileId}) {
@@ -29,5 +30,5 @@ export default function LikedPosts({profileId}) {
  if(error)return <p role="alert">{error}<button className="text-button" onClick={()=>setRetry((value)=>value+1)}>Tentar novamente</button></p>
  if(!data)return <p role="status">Carregando curtidas…</p>
  if(!data.visible)return <p className="empty-inline">Esta pessoa mantém suas curtidas privadas.</p>
- return <section className="liked-posts" aria-label="Publicações curtidas">{!data.posts.length?<p className="empty-inline">Nenhuma publicação curtida disponível para você.</p>:data.posts.map((post)=><article className="liked-post" key={post.id}><header><ProfileName id={post.authorId}>{post.author}</ProfileName><small>{new Date(post.createdAt).toLocaleDateString('pt-BR')}</small></header>{post.text?<p>{post.text}</p>:null}<PostLinks text={post.text}/><PostMedia postId={post.id} media={post.media}/>{post.hasCode?<small>Esta publicação contém um jogo ou código.</small>:null}</article>)}{data.hasMore?<button className="secondary-button" disabled={busy} onClick={more}>{busy?'Carregando…':'Carregar mais curtidas'}</button>:null}</section>
+ return <section className="liked-posts" aria-label="Publicações curtidas">{!data.posts.length?<p className="empty-inline">Nenhuma publicação curtida disponível para você.</p>:data.posts.map((post)=><article className="liked-post" key={post.id}><header><ProfileName id={post.authorId}>{post.author}</ProfileName><small>{new Date(post.createdAt).toLocaleDateString('pt-BR')}</small></header>{post.text?<p><HashtagText text={post.text}/></p>:null}<PostLinks text={post.text}/><PostMedia postId={post.id} media={post.media}/>{post.hasCode?<small>Esta publicação contém um jogo ou código.</small>:null}</article>)}{data.hasMore?<button className="secondary-button" disabled={busy} onClick={more}>{busy?'Carregando…':'Carregar mais curtidas'}</button>:null}</section>
 }

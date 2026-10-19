@@ -1,6 +1,7 @@
 import { supabase, initializeAuth } from './auth.js'
 import { SHORT_MAX_SECONDS,shortTarget } from './shorts.js'
 import { attachmentInfo } from './content.js'
+import { extractHashtags,normalizeTag } from './hashtags.js'
 
 import { appearance } from './mediaFormats.js'
 const DEFAULT_SETTINGS = { feed: { mode: 'personalized' },appearance:'common' }
@@ -59,7 +60,7 @@ function classify(text,code) {
   const words=`${text} ${code?.html||''} ${code?.css||''} ${code?.js||''}`.toLowerCase()
   const categories=taxonomy.filter(([,terms])=>terms.some((term)=>words.includes(term))).map(([name])=>name)
   if (code && !categories.includes('programação')) categories.push('programação')
-  return {categories:categories.length?categories:['geral'],tags:[...new Set(text.match(/#[\p{L}\d_]+/gu)||[])]}
+  return {categories:categories.length?categories:['geral'],tags:extractHashtags(text)}
 }
 function timeAgo(value) {
   const minutes=Math.max(1,Math.floor((Date.now()-new Date(value))/60000))
@@ -99,10 +100,11 @@ async function lists(user) {
   ])
   return {communities:await Promise.all(groups.map(async(row)=>({...groupItem(row,user.id,ownMemberships.filter((entry)=>entry.group_id===row.id),groupCounts.find((entry)=>entry.group_id===row.id)?.members||0),avatar:await displayUrl(row.avatar_url),coverUrl:await displayUrl(row.cover_url)}))),pages:await Promise.all(pages.map(async(row)=>({...row,avatar:await displayUrl(row.avatar_url),coverUrl:await displayUrl(row.cover_url),followers:pageCounts.find((entry)=>entry.page_id===row.id)?.followers||0,followed:ownFollows.some((entry)=>entry.page_id===row.id),isOwner:row.owner_id===user.id,verified:false}))),profiles:people.filter((entry)=>entry.id!==user.id).map((entry)=>({...entry,followed:user.following.includes(entry.id),score:entry.interests.filter((interest)=>user.interests.includes(interest)).length}))}
 }
-async function loadFeed(mode='chronological',{authorId,groupId,postId,after}={}) {
+async function loadFeed(mode='chronological',{authorId,groupId,postId,after,tag}={}) {
   const user=await currentProfile()
   let query=supabase.from('itext_posts').select('*').order('created_at',{ascending:false}).order('id',{ascending:false}).limit(80)
   if(postId)query=query.eq('id',postId)
+  if(tag){const canonical=normalizeTag(tag);if(!canonical)return {posts:[],hasMore:false,cursor:null};query=query.contains('tags',[canonical])}
   if(after)query=query.or(`created_at.lt.${after.createdAt},and(created_at.eq.${after.createdAt},id.lt.${after.id})`)
   if (authorId) query=query.eq('author_id',authorId)
   if (groupId) query=query.eq('group_id',groupId)
@@ -113,9 +115,9 @@ async function loadFeed(mode='chronological',{authorId,groupId,postId,after}={})
   const rows=await result(query)
   if (!rows.length) return {posts:[]}
   const ids=rows.map((row)=>row.id)
-  const [likes,comments,people,spaces,counts]=await Promise.all([
+  const [likes,comments,people,spaces,counts,viewCounts]=await Promise.all([
     user.authenticated?result(supabase.from('itext_likes').select('*').in('post_id',ids).eq('user_id',user.id)):[],
-    [],profiles(),lists(user),result(supabase.from('itext_post_counts').select('*').in('id',ids)),
+    [],profiles(),lists(user),result(supabase.from('itext_post_counts').select('*').in('id',ids)),result(supabase.from('itext_post_view_counts').select('*').in('id',ids)),
   ])
   const missing=[...new Set([...rows.map((row)=>row.author_id),...comments.map((row)=>row.author_id)])].filter((id)=>id!==user.id&&!people.some((entry)=>entry.id===id))
   if (missing.length) people.push(...await Promise.all((await result(supabase.from('itext_public_profiles').select('*').in('id',missing))).map((row)=>profile(row))))
@@ -132,7 +134,7 @@ async function loadFeed(mode='chronological',{authorId,groupId,postId,after}={})
     const page=spaces.pages.find((entry)=>entry.id===row.page_id)
     const interest=(row.categories||[]).filter((entry)=>user.interests.includes(entry))
     const relationship=user.following.includes(row.author_id)
-    return {id:row.id,author:author.name,authorId:author.id,handle:author.handle,avatar:author.avatar,verified:false,time:timeAgo(row.created_at),createdAt:row.created_at,editedAt:row.edited_at,text:row.text,code:row.code,media:await Promise.all((row.media||[]).map(displayMedia)),tags:row.tags,categories:row.categories,likes:counts.find((entry)=>entry.id===row.id)?.likes||0,comments:counts.find((entry)=>entry.id===row.id)?.comments||0,liked:postLikes.some((entry)=>entry.user_id===user.id),commentsList:postComments.map((entry)=>({id:entry.id,text:entry.text,author:byId.get(entry.author_id)?.name||'Membro do Itext'})),groupId:row.group_id,pageId:row.page_id,context:group?{type:'group',name:group.name}:page?{type:'page',name:page.name}:null,kind:row.code?'game':row.media?.some((entry)=>entry.type==='video')?'video':'post',reason:interest.length?`combina com seu interesse em ${interest[0]}`:relationship?`você segue ${author.name}`:'foi publicada na comunidade',score:interest.length*2+(relationship?2:0)+Math.exp(-(Date.now()-new Date(row.created_at))/172800000)}
+    return {id:row.id,author:author.name,authorId:author.id,handle:author.handle,avatar:author.avatar,verified:false,time:timeAgo(row.created_at),createdAt:row.created_at,editedAt:row.edited_at,text:row.text,code:row.code,media:await Promise.all((row.media||[]).map(displayMedia)),tags:row.tags,categories:row.categories,views:Number(viewCounts.find(entry=>entry.id===row.id)?.views||0),likes:counts.find((entry)=>entry.id===row.id)?.likes||0,comments:counts.find((entry)=>entry.id===row.id)?.comments||0,liked:postLikes.some((entry)=>entry.user_id===user.id),commentsList:postComments.map((entry)=>({id:entry.id,text:entry.text,author:byId.get(entry.author_id)?.name||'Membro do Itext'})),groupId:row.group_id,pageId:row.page_id,context:group?{type:'group',name:group.name}:page?{type:'page',name:page.name}:null,kind:row.code?'game':row.media?.some((entry)=>entry.type==='video')?'video':'post',reason:interest.length?`combina com seu interesse em ${interest[0]}`:relationship?`você segue ${author.name}`:'foi publicada na comunidade',score:interest.length*2+(relationship?2:0)+Math.exp(-(Date.now()-new Date(row.created_at))/172800000)}
   }))
   if (mode==='personalized') posts.sort((a,b)=>b.score-a.score)
   return {posts,hasMore:rows.length===80,cursor:posts.at(-1)||null}
@@ -158,6 +160,19 @@ async function dating() {
   return {profile:{bio:own.bio,birthDate:own.birth_date,city:own.city,latitude:own.latitude,longitude:own.longitude,interests:own.interests,photos:await Promise.all(own.photos.map(displayUrl)),lookingFor:own.looking_for,discoveryEnabled:own.discovery_enabled},candidates:await Promise.all(cards.filter((row)=>!row.swiped).map(asCard)),matches:await Promise.all(cards.filter((row)=>row.matched).map(asCard))}
 }
 export const socialApi={
+  recordPostView:async pid=>{await identity();return result(supabase.rpc('itext_record_post_view',{pid}))},
+  postViewCounts:ids=>ids.length?result(supabase.from('itext_post_view_counts').select('*').in('id',ids.slice(0,100))):Promise.resolve([]),
+  hashtagTrends:()=>result(supabase.rpc('itext_hashtag_trends')),
+  hashtagFeed:(tag,after=null)=>loadFeed('chronological',{tag,after}),
+  recordStoryView:async sid=>{await identity();return result(supabase.rpc('itext_record_story_view',{sid}))},
+  async storyAudience(sid,filter='all',offset=0){
+   await identity();const data=await result(supabase.rpc('itext_story_audience',{sid,p_filter:filter,p_offset:offset}));
+   return {...data,latest:data.latest?{...data.latest,avatar:await displayUrl(data.latest.avatar_url)}:null,rows:await Promise.all(data.rows.map(async row=>({...row,avatar:await displayUrl(row.avatar_url)})))}
+  },
+  async storyMessagePreviews(ids){
+   if(!ids.length)return [];await identity();const rows=await result(supabase.rpc('itext_story_message_previews',{ids:ids.slice(0,100)}));
+   return Promise.all(rows.map(async row=>{let url=null;if(row.story.media_path){const signed=await supabase.storage.from('itext-media').createSignedUrl(row.story.media_path,60);url=signed.error?null:signed.data.signedUrl}return {...row,story:{...row.story,url}}}))
+  },
   authorFeed:(id,after=null)=>loadFeed('chronological',{authorId:id,after}),
   async post(id){const data=await loadFeed('chronological',{postId:id});if(!data.posts.length)throw new Error('Publicação indisponível para sua conta.');return data.posts[0]},
   async publicProfile(id){
@@ -294,12 +309,13 @@ export const socialApi={
     const rows=await result(query)
     if(!rows.length)return {posts:[],hasMore:false,cursor:null}
     const ids=rows.map(row=>row.id)
-    const [authors,counts,likes]=await Promise.all([
+    const [authors,counts,likes,viewCounts]=await Promise.all([
       result(supabase.from('itext_public_profiles').select('id,name,avatar_url').in('id',[...new Set(rows.map(row=>row.author_id))])),
       result(supabase.from('itext_post_counts').select('*').in('id',ids)),
       result(supabase.from('itext_likes').select('post_id').eq('user_id',user.id).in('post_id',ids)),
+      result(supabase.from('itext_post_view_counts').select('*').in('id',ids)),
     ])
-    return {posts:await Promise.all(rows.map(async row=>{const author=authors.find(person=>person.id===row.author_id),count=counts.find(item=>item.id===row.id);return {id:row.id,authorId:row.author_id,author:author?.name||'Membro do Itext',avatar:await displayUrl(author?.avatar_url),text:row.text,createdAt:row.created_at,editedAt:row.edited_at,media:await Promise.all(row.media.filter(item=>item.type==='video'&&item.short===true).map(displayMedia)),likes:Number(count?.likes||0),comments:Number(count?.comments||0),liked:likes.some(item=>item.post_id===row.id)}})),hasMore:rows.length===20,cursor:{id:rows.at(-1).id,createdAt:rows.at(-1).created_at}}
+    return {posts:await Promise.all(rows.map(async row=>{const author=authors.find(person=>person.id===row.author_id),count=counts.find(item=>item.id===row.id);return {id:row.id,authorId:row.author_id,author:author?.name||'Membro do Itext',avatar:await displayUrl(author?.avatar_url),text:row.text,createdAt:row.created_at,editedAt:row.edited_at,media:await Promise.all(row.media.filter(item=>item.type==='video'&&item.short===true).map(displayMedia)),views:Number(viewCounts.find(item=>item.id===row.id)?.views||0),likes:Number(count?.likes||0),comments:Number(count?.comments||0),liked:likes.some(item=>item.post_id===row.id)}})),hasMore:rows.length===20,cursor:{id:rows.at(-1).id,createdAt:rows.at(-1).created_at}}
   },
   async createShort({id,text='',media}){
     const user=await identity()

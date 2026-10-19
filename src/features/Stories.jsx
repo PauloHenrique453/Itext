@@ -12,6 +12,7 @@ import { messagesClient } from '../services/messaging.js'
 import { privacyClient } from '../services/chatPrivacy.js'
 import { unlockedChatSession } from '../services/chatSession.js'
 import { chatMode, standardMessage } from '../services/chatMode.js'
+import StoryActivity,{StoryExposure,StoryAudienceButton} from './StoryActivity.jsx'
 
 const messages=supabase?messagesClient(supabase):null
 const privacy=supabase?privacyClient(supabase):null
@@ -45,7 +46,7 @@ export function StoryReply({story,user,onNotify,onMessage}) {
       await messages.send(attempt.payload);setDraft('');pending.current=null;onNotify('Resposta enviada como mensagem ao dono do story.')
     }catch(issue){setError(issue.message)}finally{setBusy(false)}
   }
-  return <div className="story-reply" data-has-drafts={draft.trim()?'true':undefined}>{error?<p className="chat-error" role="alert">{error}</p>:null}{ready&&!ready.allowed?<p>As mensagens com esta pessoa estão bloqueadas.</p>:<><p className="form-note">Resposta privada para {story.name}</p>{mode==='needs-setup'?<div className="chat-mode-notice"><p>A proteção adicional escolhida não está disponível aqui.</p><button className="secondary-button" onClick={()=>setStandard(true)}>Enviar como conversa padrão</button><button className="text-button" onClick={()=>onMessage({id:story.author_id,name:story.name})}>Abrir conversa</button></div>:null}<form onSubmit={send}><input aria-label="Responder ao story" placeholder="Comentar…" value={draft} maxLength={4000} disabled={busy} onChange={event=>setDraft(event.target.value)}/><button className="send-button" aria-label="Enviar resposta ao story" disabled={busy||!draft.trim()||!ready?.allowed||!['standard','protected'].includes(mode)}><Send size={18}/></button></form></>}</div>
+  return <div className="story-reply" data-has-drafts={draft.trim()?'true':undefined}>{error?<p className="chat-error" role="alert">{error}</p>:null}{ready&&!ready.allowed?<p>As mensagens com esta pessoa estão bloqueadas.</p>:<><p className="form-note">Resposta privada para {story.name}. O dono pode ver sua visualização.</p>{mode==='needs-setup'?<div className="chat-mode-notice"><p>A proteção adicional escolhida não está disponível aqui.</p><button className="secondary-button" onClick={()=>setStandard(true)}>Enviar como conversa padrão</button><button className="text-button" onClick={()=>onMessage({id:story.author_id,name:story.name})}>Abrir conversa</button></div>:null}<form onSubmit={send}><input aria-label="Responder ao story" placeholder="Comentar…" value={draft} maxLength={4000} disabled={busy} onChange={event=>setDraft(event.target.value)}/><button className="send-button" aria-label="Enviar resposta ao story" disabled={busy||!draft.trim()||!ready?.allowed||!['standard','protected'].includes(mode)}><Send size={18}/></button></form></>}</div>
 }
 
 export function StoryCanvas({type,url,text='',background='#102a43',font='classic',caption='',preview=false}){
@@ -69,6 +70,7 @@ export default function Stories({user,authorId=null,onNotify,onMessage}) {
   const [error,setError]=useState('')
   const [busy,setBusy]=useState(false)
   const [confirmDelete,setConfirmDelete]=useState(false)
+  const [activity,setActivity]=useState(false)
   const version=useRef(0)
   async function refresh(){
     const ticket=++version.current,target=selectedRef.current
@@ -76,7 +78,7 @@ export default function Stories({user,authorId=null,onNotify,onMessage}) {
     if(target&&!stories.some(row=>row.id===target)){const linked=await itextApi.stories(null,target);if(linked[0])stories.push(linked[0])}
     if(ticket===version.current){setRows(stories);setLoading(false);setError('')}
   }
-  function closeStory(){setSelected(null);setConfirmDelete(false);const url=new URL(window.location.href);if(url.searchParams.has('story')){url.searchParams.delete('story');window.history.replaceState(null,'',url)}}
+  function closeStory(){setActivity(false);setSelected(null);setConfirmDelete(false);const url=new URL(window.location.href);if(url.searchParams.has('story')){url.searchParams.delete('story');window.history.replaceState(null,'',url)}}
   async function share(){if(!story)return;try{const url=storyAddress(story.id,window.location.href);if(navigator.share)await navigator.share({title:`Story de ${story.name} no Itext`,url});else{await navigator.clipboard.writeText(url);onNotify('Link do story copiado.')}}catch(issue){if(issue.name!=='AbortError')onNotify('Não foi possível compartilhar o story. Tente novamente.')}}
   useEffect(()=>{
     let active=true
@@ -92,7 +94,7 @@ export default function Stories({user,authorId=null,onNotify,onMessage}) {
   const people=[...new Set(ordered.map(row=>row.author_id))].map(author=>ordered.find(row=>row.author_id===author))
   async function like(){if(busy||!story)return;setBusy(true);try{await itextApi.toggleStoryLike(story.id);await refresh()}catch(issue){setError(issue.message)}finally{setBusy(false)}}
   async function remove(){if(busy||!story)return;setBusy(true);try{await itextApi.deleteStory(story.id);closeStory();await refresh();onNotify('Story apagado.')}catch(issue){setError(issue.message)}finally{setBusy(false)}}
-  function selectStory(id){setSelected(id);setConfirmDelete(false)}
+  function selectStory(id){setActivity(false);setSelected(id);setConfirmDelete(false)}
   function step(direction){const next=ordered[index+direction];if(next)selectStory(next.id)}
   return <section className="stories-section" aria-label="Stories">
     <div className="stories-strip">{!authorId||authorId===user.id?<button className="story-circle story-create" onClick={()=>setCreating(true)}><span><Plus size={24}/></span><strong>Seu story</strong></button>:null}{people.map(person=><StoryCircle key={person.author_id} person={person} userId={user.id} onOpen={()=>selectStory(person.id)}/>)}{authorId&&!rows.length?<p className="empty-inline">Sem stories ativos.</p>:null}</div>
@@ -102,18 +104,19 @@ export default function Stories({user,authorId=null,onNotify,onMessage}) {
       {story?<div className="story-viewer" onKeyDown={event=>{if(['INPUT','TEXTAREA','SELECT','VIDEO','AUDIO'].includes(event.target.tagName)||event.altKey||event.ctrlKey||event.metaKey)return;if(event.key==='ArrowLeft'){event.preventDefault();step(-1)}if(event.key==='ArrowRight'){event.preventDefault();step(1)}}}>
         <div className="story-viewer-scroll">
           {error?<p className="chat-error" role="alert">{error}<button className="text-button" onClick={()=>void refresh().catch(issue=>setError(issue.message))}>Tentar novamente</button></p>:null}
-          <div className="story-stage"><StoryCanvas type={story.media_type} url={story.url} text={story.text_content} background={story.background_color} font={story.font_style} caption={story.caption}/><div className="story-stage-navigation"><button className="icon-button" aria-label="Story anterior" disabled={index<1} onClick={()=>step(-1)}><ChevronLeft size={22}/></button><button className="icon-button" aria-label="Próximo story" disabled={index===ordered.length-1} onClick={()=>step(1)}><ChevronRight size={22}/></button></div></div>
+          <div className="story-stage"><StoryExposure key={story.id} story={story} user={user}><StoryCanvas type={story.media_type} url={story.url} text={story.text_content} background={story.background_color} font={story.font_style} caption={story.caption}/></StoryExposure><div className="story-stage-navigation"><button className="icon-button" aria-label="Story anterior" disabled={index<1} onClick={()=>step(-1)}><ChevronLeft size={22}/></button><button className="icon-button" aria-label="Próximo story" disabled={index===ordered.length-1} onClick={()=>step(1)}><ChevronRight size={22}/></button></div></div>
           {story.caption?<p className="story-caption">{story.caption}</p>:null}
           {confirmDelete?<div className="story-delete-confirm"><p>Apagar este story para todos?</p><button className="secondary-button" onClick={()=>setConfirmDelete(false)}>Cancelar</button><button className="primary-button" disabled={busy} onClick={remove}>Apagar</button></div>:null}
         </div>
-        <StoryFooter story={story} user={user} busy={busy} onLike={like} onShare={share} onNotify={onNotify} onMessage={onMessage}/>
+        <StoryFooter onAudience={()=>setActivity(true)} story={story} user={user} busy={busy} onLike={like} onShare={share} onNotify={onNotify} onMessage={onMessage}/>
       </div>:<div className="story-unavailable"><span className="story-empty-symbol"><ImageIcon size={32}/></span><p role="status">{loading?'Carregando seu próximo momento…':'Este story expirou, foi apagado ou não está disponível para sua conta.'}</p>{error?<p className="chat-error" role="alert">{error}</p>:null}<button className="secondary-button" disabled={loading} onClick={()=>void refresh().catch(issue=>setError(issue.message))}>Tentar novamente</button></div>}
     </Modal>:null}
+    {activity&&story&&story.author_id===user.id?<StoryActivity story={story} onClose={()=>setActivity(false)} onMessage={person=>{closeStory();onMessage(person)}}/>:null}
   </section>
 }
 
-export function StoryFooter({story,user,busy,onLike,onShare,onNotify,onMessage}){
- return <footer className="story-footer">{story.author_id!==user.id?<StoryReply key={story.id} story={story} user={user} onNotify={onNotify} onMessage={onMessage}/>:<p className="story-own-note">Seu story</p>}<div className="story-footer-actions"><button className={story.liked?'story-like is-liked':'story-like'} aria-pressed={story.liked} aria-label={story.liked?'Remover curtida do story':'Curtir story'} title="Curtir story" disabled={busy} onClick={onLike}><Heart size={24} fill={story.liked?'currentColor':'none'}/><span>{story.likes}</span></button><button type="button" className="icon-button story-share" aria-label="Compartilhar story" title="Compartilhar story" onClick={onShare}><Share2 size={23}/></button></div></footer>
+export function StoryFooter({story,user,busy,onLike,onShare,onNotify,onMessage,onAudience}){
+ return <footer className="story-footer">{story.author_id!==user.id?<StoryReply key={story.id} story={story} user={user} onNotify={onNotify} onMessage={onMessage}/>:<StoryAudienceButton key={story.id} story={story} onOpen={onAudience}/>}<div className="story-footer-actions"><button className={story.liked?'story-like is-liked':'story-like'} aria-pressed={story.liked} aria-label={story.liked?'Remover curtida do story':'Curtir story'} title="Curtir story" disabled={busy} onClick={onLike}><Heart size={24} fill={story.liked?'currentColor':'none'}/><span>{story.likes}</span></button><button type="button" className="icon-button story-share" aria-label="Compartilhar story" title="Compartilhar story" onClick={onShare}><Share2 size={23}/></button></div></footer>
 }
 
 export function StoryCircle({person,userId,onOpen}){

@@ -1,7 +1,9 @@
 import { ArrowUpRight, Code2, Hash, Search, Sparkles, UsersRound } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useContext,useMemo, useState } from 'react'
 import ViewHeader from '../components/ViewHeader.jsx'
 import Avatar from '../components/Avatar.jsx'
+import {Hashtag,HashtagContext} from '../components/Hashtags.jsx'
+import {normalizeTag} from '../services/hashtags.js'
 
 const topics = [
   { icon: Code2, name: 'Programação', query: 'programação', description: 'React, CSS, APIs e carreira', color: '#1683ff' },
@@ -25,12 +27,14 @@ export default function ExploreView({ initialQuery = '', onNavigate, posts = [],
 
   const news = pages.filter((page) => includes(page.category, 'notícia')).slice(0, 4)
   const headlinePosts = posts.filter((post) => post.context?.type === 'page' || (post.categories || []).some((category) => user?.interests?.includes(category))).slice(0, 4)
-  const trends = [...new Set(posts.flatMap((post) => post.tags || []))].slice(0, 4)
+  const {trends:ranked,open:openTag}=useContext(HashtagContext)
+  const trends=ranked.slice(0,6)
 
   return <main className="feature-view">
     <ViewHeader title="Explorar" subtitle="Perfis, grupos e publicações separados pelo que combina com você." action={<button className="secondary-button" onClick={onFindPeople}><UsersRound size={17}/>Encontrar pessoas</button>} />
     <div className="feature-content explore-content">
-      <label className="explore-search"><Search size={21} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busque pessoas, assuntos, páginas e grupos" /></label>
+      <label className="explore-search"><Search size={21} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&query.startsWith('#')&&normalizeTag(query))openTag?.(normalizeTag(query))}} placeholder="Busque pessoas, assuntos, páginas e grupos" /></label>
+      {normalized.startsWith('#')&&normalizeTag(normalized)?<button className="secondary-button" onClick={()=>openTag?.(normalizeTag(normalized))}>Explorar {normalizeTag(normalized)} em todas as publicações</button>:null}
       {normalized ? <div className="explore-results">
         <section className="search-results"><div className="section-heading"><div><h2>Perfis</h2><p>Ordenados por interesses em comum.</p></div></div>{results.matchingPeople.length ? results.matchingPeople.map((person) => <div className="person-result" key={person.id}><Avatar userId={person.id} src={person.avatar} alt={person.name} /><span><strong>{person.name}</strong><small>{person.handle}{person.score ? ` · ${person.score} interesses em comum` : ''}</small></span></div>) : <p className="empty-inline">Nenhum perfil encontrado.</p>}</section>
         <section className="search-results"><div className="section-heading"><div><h2>Publicações</h2><p>Conteúdos que correspondem à busca.</p></div></div>{results.matchingPosts.length ? results.matchingPosts.map((post) => <button className="explore-post-result" key={post.id} onClick={() => onNavigate('home')}><Avatar userId={post.authorId} src={post.avatar} alt={post.author} /><span><strong>{post.author}</strong><p>{post.text || 'Mídia publicada no Itext'}</p><small>{post.reason}</small></span><ArrowUpRight size={17} /></button>) : <p className="empty-inline">Nenhuma publicação encontrada.</p>}</section>
@@ -40,7 +44,7 @@ export default function ExploreView({ initialQuery = '', onNavigate, posts = [],
         <section><div className="section-heading"><div><h2>Publicações recomendadas</h2><p>O algoritmo combina interesse, afinidade, conexões e recência.</p></div></div><div className="explore-post-grid">{headlinePosts.map((post) => <button className="explore-post-result" key={post.id} onClick={() => onNavigate('home')}><Avatar userId={post.authorId} src={post.avatar} alt={post.author} /><span><strong>{post.author}</strong><p>{post.text || 'Mídia publicada no Itext'}</p><small>{post.reason}</small></span><ArrowUpRight size={17} /></button>)}</div></section>
 
         {news.length ? <section><div className="section-heading"><div><h2>Notícias e páginas públicas</h2><p>Atualizações de páginas que você pode seguir.</p></div></div><div className="page-mini-list">{news.map((page) => <button className="search-topic-result" key={page.id} onClick={() => onNavigate('pages')}><span><Sparkles size={21} /></span><div><strong>{page.name}</strong><small>{page.description || page.category}</small></div><ArrowUpRight size={19} /></button>)}</div></section> : null}
-        {trends.length ? <section><div className="section-heading"><div><h2>Assuntos nas publicações</h2><p>Hashtags em conversas recentes.</p></div></div><div className="trend-strip">{trends.map((tag, index) => <button key={tag} onClick={() => setQuery(tag)}><span>0{index + 1}</span><strong>{tag}</strong><small>Explorar assunto</small></button>)}</div></section> : null}
+        {trends.length ? <section><div className="section-heading"><div><h2>Assuntos nas publicações</h2><p>Hashtags em conversas recentes.</p></div></div><div className="trend-strip">{trends.map((row, index) => <button key={row.tag} onClick={() => openTag?.(row.tag)}><span>0{index + 1}</span><strong className={row.is_trending?'hashtag hashtag--trending':'hashtag'}>{row.tag}</strong><small>{row.uses} publicações em 24 horas</small></button>)}</div></section> : null}
       </>}
     </div>
   </main>

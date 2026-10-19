@@ -20,6 +20,7 @@ function service(change = () => null) {
 test('deployment accepts available schema and rejects missing schema and disabled Google',async()=>{
  assert.equal((await checkDeployment(config,service())).length,4)
  await assert.rejects(checkDeployment(config,service((url)=>url.includes('/itext_posts?')?Response.json({error:'not found'},{status:404}):null)),/social.sql/)
+ await assert.rejects(checkDeployment(config,service((url)=>url.includes('/itext_post_view_counts?')?Response.json({error:'not found'},{status:404}):null)),/itext_post_view_counts/)
  await assert.rejects(checkDeployment(config,service((url)=>url.endsWith('/auth/v1/settings')?Response.json({external:{google:false}}):null)),/Ative o provedor Google/)
 })
 test('each private table must deny anonymous requests even if an exposed table is empty',async()=>{

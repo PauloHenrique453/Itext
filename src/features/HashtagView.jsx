@@ -1,0 +1,12 @@
+import {useEffect,useState} from 'react'
+import {Hash,RefreshCw} from 'lucide-react'
+import ViewHeader from '../components/ViewHeader.jsx'
+import {Hashtag} from '../components/Hashtags.jsx'
+import {PostCard} from './FeedView.jsx'
+import {itextApi} from '../services/itextApi.js'
+export default function HashtagView({tag,user,onNotify,onChanged}){
+ const [data,setData]=useState({posts:[],hasMore:false,cursor:null}),[loading,setLoading]=useState(true),[error,setError]=useState(''),[retry,setRetry]=useState(0)
+ useEffect(()=>{let current=true;setData({posts:[],hasMore:false,cursor:null});setLoading(true);setError('');void itextApi.hashtagFeed(tag).then(page=>{if(current)setData(page)}).catch(issue=>{if(current)setError(issue.message)}).finally(()=>{if(current)setLoading(false)});return()=>{current=false}},[tag,retry])
+ async function more(){if(loading)return;setLoading(true);try{const page=await itextApi.hashtagFeed(tag,data.cursor);setData(previous=>({...page,posts:[...previous.posts,...page.posts.filter(post=>!previous.posts.some(row=>row.id===post.id))]}));setError('')}catch(issue){setError(issue.message)}finally{setLoading(false)}}
+ return <main className="feature-view hashtag-view"><ViewHeader title={<><Hash size={25}/><Hashtag tag={tag}/></>} subtitle="Publicações com esta hashtag, da mais recente para a mais antiga." action={<button className="icon-button" aria-label="Atualizar hashtag" onClick={()=>setRetry(value=>value+1)}><RefreshCw size={19}/></button>}/><div className="feed-content">{error?<p className="chat-error" role="alert">{error}<button className="text-button" onClick={()=>setRetry(value=>value+1)}>Tentar novamente</button></p>:null}{data.posts.map(post=><PostCard key={post.id} post={post} user={user} onNotify={onNotify} onToggleLike={(id,desired)=>itextApi.setPostLike(id,desired)} onUploadMedia={itextApi.uploadMedia} onEditPost={async(id,payload)=>{await itextApi.editPost(id,payload);setRetry(value=>value+1);void onChanged()}} onDeletePost={async id=>{await itextApi.deletePost(id);setRetry(value=>value+1);void onChanged()}} onChanged={()=>setRetry(value=>value+1)}/>)}{loading?<p role="status" className="empty-inline">Carregando publicações…</p>:!data.posts.length&&!error?<div className="profile-empty"><Hash size={30}/><h2>Nenhuma publicação disponível.</h2><p>Use {tag} em uma publicação para participar.</p></div>:null}{data.hasMore?<button className="secondary-button" disabled={loading} onClick={more}>Ver mais publicações</button>:null}</div></main>
+}

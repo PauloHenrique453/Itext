@@ -16,7 +16,7 @@ export function loginOptions(provider, origin, inviteSearch = '') {
   if (!LOGIN_PROVIDERS.some((entry) => entry.id === provider)) throw new Error('Essa forma de entrar não está disponível.')
   const callback = new URL('/', origin)
   const invite = new URLSearchParams(inviteSearch)
-  for (const field of ['grupo', 'convite', 'story', 'ishort']) {
+  for (const field of ['grupo', 'convite', 'story', 'ishort', 'hashtag']) {
     const value = invite.get(field)
     if (value) callback.searchParams.set(field, value)
   }

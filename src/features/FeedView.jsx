@@ -12,6 +12,8 @@ import { ProfileName } from '../components/ProfileNavigation.jsx'
 import { attachmentAccept,safeLink } from '../services/content.js'
 import usePostLike from '../hooks/usePostLike.js'
 import CommentsDialog from './CommentsDialog.jsx'
+import { Hashtag,HashtagDraft,HashtagText } from '../components/Hashtags.jsx'
+import PostViews,{usePostViews} from '../components/PostViews.jsx'
 import ShortComposer from './ShortComposer.jsx'
 import { addComposerFiles } from '../services/composerAttachments.js'
 
@@ -82,6 +84,7 @@ export function Composer({ user, communities = [], pages = [], onPublish, onUplo
       <Avatar userId={user.id} src={user.avatar} alt={user.name} />
       <textarea maxLength={10000} value={text} onChange={(event) => setText(event.target.value)} placeholder={mode === 'code' ? 'Conte o que você construiu…' : 'O que está acontecendo?'} aria-label="Texto da publicação" rows={1} />
     </div>
+    <HashtagDraft text={text}/>
     {detectsCode && mode === 'post' ? <button className="ai-suggestion" onClick={() => setMode('code')}><Sparkles size={16} /> Parece conteúdo de programação. Quer publicar com código executável?<strong>Usar editor</strong></button> : null}
     {mode === 'code' ? <div className="composer-code-grid">
       <label>HTML<textarea value={code.html} onChange={(event) => setCode({ ...code, html: event.target.value })} /></label>
@@ -128,15 +131,16 @@ export function PostCard({ post, user, onToggleLike, onRunCode, onTag, onNotify,
       else { await navigator.clipboard.writeText(url.href); onNotify('Link da publicação copiado.') }
     } catch (error) { if (error.name !== 'AbortError') onNotify('Não foi possível compartilhar. Tente novamente.') }
   }
-  return <article className="post-card" id={`post-${post.id}`}><Avatar userId={post.authorId} src={post.avatar} alt={post.author} /><div className="post-card__body">
+  const exposure=useRef(null),views=usePostViews(exposure,post,user)
+  return <article ref={exposure} className="post-card" id={`post-${post.id}`}><Avatar userId={post.authorId} src={post.avatar} alt={post.author} /><div className="post-card__body">
     <header className="post-card__header"><div><ProfileName id={post.authorId}>{post.author}</ProfileName>{post.verified ? <CheckCircle2 className="verified" size={15} fill="currentColor" /> : null}<span>{post.handle} · {post.time}{post.editedAt?' · editado':''}</span></div>{post.authorId===user.id?<PostManage post={post} onEdit={onEditPost} onDelete={onDeletePost} onUploadMedia={onUploadMedia} onNotify={onNotify}/>:null}</header>
     {post.context ? <span className="post-context">{post.context.type === 'group' ? 'No grupo' : 'Na página'}: {post.context.name}</span> : null}
-    {post.text ? <p className="post-card__text">{post.text}</p> : null}
+    {post.text ? <p className="post-card__text"><HashtagText text={post.text}/></p> : null}
     {post.reason ? <p className="feed-reason"><Sparkles size={12} /> Você vê isto porque {post.reason}.</p> : null}
-    {post.tags?.length ? <div className="post-tags">{post.tags.map((tag) => <button key={tag} onClick={() => onTag(tag)}>{tag}</button>)}</div> : null}
+    {post.tags?.length ? <div className="post-tags">{post.tags.map((tag) => <Hashtag key={tag} tag={tag}/>)}</div> : null}
     <PostLinks text={post.text}/><PostMedia postId={post.id} media={post.media} image={post.image}/>
     {post.code ? <CodePreview code={post.code} onRun={onRunCode||setLocalCode} /> : null}
-    <div className="post-actions"><button aria-label="Abrir comentários" onClick={() => setShowComments(true)} className={showComments ? 'is-active' : ''}><MessageCircle size={18} /><span>{post.comments}</span></button><button aria-label="Compartilhar publicação" onClick={share}><Share2 size={18} /></button><button disabled={!user.authenticated || reaction.pending} aria-pressed={reaction.liked} aria-label={reaction.liked ? 'Remover curtida' : 'Curtir publicação'} className={reaction.liked ? 'is-liked' : ''} onClick={reaction.toggle}><Heart size={19} fill={reaction.liked ? 'currentColor' : 'none'} /><span>{reaction.likes}</span></button></div>
+    <div className="post-actions"><PostViews value={views}/><button aria-label="Abrir comentários" onClick={() => setShowComments(true)} className={showComments ? 'is-active' : ''}><MessageCircle size={18} /><span>{post.comments}</span></button><button aria-label="Compartilhar publicação" onClick={share}><Share2 size={18} /></button><button disabled={!user.authenticated || reaction.pending} aria-pressed={reaction.liked} aria-label={reaction.liked ? 'Remover curtida' : 'Curtir publicação'} className={reaction.liked ? 'is-liked' : ''} onClick={reaction.toggle}><Heart size={19} fill={reaction.liked ? 'currentColor' : 'none'} /><span>{reaction.likes}</span></button></div>
     {showComments?<CommentsDialog postId={post.id} user={user} onClose={()=>setShowComments(false)} onChanged={onChanged} focusComment={initialCommentId}/>:null}
     {localCode?<Modal title="Executar código" onClose={()=>setLocalCode(null)} size="lg"><div className="preview-shell"><iframe title="Código da publicação" sandbox="allow-scripts" srcDoc={`<!doctype html><style>${localCode.css||''}</style>${localCode.html||''}<script>${localCode.js||''}</script>`}/></div></Modal>:null}
   </div></article>
